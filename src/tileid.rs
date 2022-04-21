@@ -31,17 +31,17 @@ fn geo_to_mercator(lon: f64, lat: f64) -> (f64, f64) {
 
 #[derive(Debug, Eq, PartialEq)]
 pub struct TileID {
-    zoom: u8,
-    x: u32,
-    y: u32,
+    pub zoom: u8,
+    pub x: u32,
+    pub y: u32,
 }
 
 #[derive(Debug)]
 pub struct Bounds {
-    xmin: f64,
-    ymin: f64,
-    xmax: f64,
-    ymax: f64,
+    pub xmin: f64,
+    pub ymin: f64,
+    pub xmax: f64,
+    pub ymax: f64,
 }
 
 impl TileID {
@@ -202,11 +202,11 @@ mod tests {
     }
 
     #[rstest]
-    // #[case(0, Bounds{xmin: -180.0, ymin: -90.0, xmax: 180.0, ymax: 90.0}, TileID{zoom: 0, x: 0, y: 0}, TileID{zoom: 0, x: 0, y: 0})]
-    // #[case(1, Bounds{xmin: -180.0, ymin: -90.0, xmax: 180.0, ymax: 90.0}, TileID{zoom: 1, x: 0, y: 0}, TileID{zoom: 1, x: 1, y: 1})]
-    // #[case(1, Bounds{xmin: -180.0, ymin: -90.0, xmax: 0.0, ymax: 90.0}, TileID{zoom: 1, x: 0, y: 0}, TileID{zoom: 1, x: 0, y: 1})]
+    #[case(0, Bounds{xmin: -180.0, ymin: -90.0, xmax: 180.0, ymax: 90.0}, TileID{zoom: 0, x: 0, y: 0}, TileID{zoom: 0, x: 0, y: 0})]
+    #[case(1, Bounds{xmin: -180.0, ymin: -90.0, xmax: 180.0, ymax: 90.0}, TileID{zoom: 1, x: 0, y: 0}, TileID{zoom: 1, x: 1, y: 1})]
+    #[case(1, Bounds{xmin: -180.0, ymin: -90.0, xmax: 0.0, ymax: 90.0}, TileID{zoom: 1, x: 0, y: 0}, TileID{zoom: 1, x: 0, y: 1})]
     #[case(4, Bounds{xmin: -100.0, ymin: -20.0, xmax: -20.0, ymax: 20.0}, TileID{zoom: 4, x: 3, y: 7}, TileID{zoom: 4, x: 7, y: 8})]
-    // #[case(4, Bounds{xmin: -1e-6, ymin: -1e-6, xmax: 1e-6, ymax: 1e-6}, TileID{zoom: 4, x: 7, y: 7}, TileID{zoom: 4, x: 8, y: 8})]
+    #[case(4, Bounds{xmin: -1e-6, ymin: -1e-6, xmax: 1e-6, ymax: 1e-6}, TileID{zoom: 4, x: 7, y: 7}, TileID{zoom: 4, x: 8, y: 8})]
     fn test_tile_range(
         #[case] zoom: u8,
         #[case] bounds: Bounds,
