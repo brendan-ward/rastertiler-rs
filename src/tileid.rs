@@ -18,15 +18,15 @@ const DEG2RAD: f64 = PI / 180.0;
 
 fn geo_to_mercator(lon: f64, lat: f64) -> (f64, f64) {
     // clamp x to -180 to 180 range
-    let x = lon.max(-180.0).min(180.0) * (ORIGIN / 180.0);
+    let lon = lon.max(-180.0).min(180.0);
 
     // clamp y to -85.051129 to 85.051129 range
-    let y = RE
-        * ((PI * 0.25) + (0.5 * DEG2RAD * lat.max(-85.051129).min(85.051129)))
-            .tan()
-            .ln();
+    let lat = lat.max(-85.051129).min(85.051129);
 
-    return (x, y);
+    let x = lon * (ORIGIN / 180.0);
+    let y = RE * ((PI * 0.25) + (0.5 * DEG2RAD * lat)).tan().ln();
+
+    (x, y)
 }
 
 #[derive(Debug, Eq, PartialEq)]
@@ -52,7 +52,7 @@ impl TileID {
     /// * `x` - tile column (X)
     /// * `y` - tile row (Y)
     pub fn new(zoom: u8, x: u32, y: u32) -> TileID {
-        return TileID { zoom, x, y };
+        TileID { zoom, x, y }
     }
 
     /// Calculates the min and max TileIDs that would cover the input
@@ -83,7 +83,7 @@ impl TileID {
             .max(0.0)
             .min(z - 1.0) as u32;
 
-        return (
+        (
             TileID {
                 zoom,
                 x: xmin,
@@ -94,19 +94,19 @@ impl TileID {
                 x: xmax,
                 y: ymin,
             },
-        );
+        )
     }
     pub fn geo_bounds(&self) -> Bounds {
         let z = (1 << self.zoom) as f64;
         let x = self.x as f64;
         let y = self.y as f64;
 
-        return Bounds {
+        Bounds {
             xmin: x / z * 360.0 - 180.0,
             ymin: (PI * (1.0 - 2.0 * ((y + 1.0) / z))).sinh().atan() * RAD2DEG,
             xmax: (x + 1.0) / z * 360.0 - 180.0,
             ymax: (PI * (1.0 - 2.0 * y / z)).sinh().atan() * RAD2DEG,
-        };
+        }
     }
     pub fn mercator_bounds(&self) -> Bounds {
         let z = (1 << self.zoom) as f64;
@@ -117,12 +117,12 @@ impl TileID {
         let xmin = x * tile_size - CE / 2.0;
         let ymax = CE / 2.0 - y * tile_size;
 
-        return Bounds {
+        Bounds {
             xmin,
             ymin: ymax - tile_size,
             xmax: xmin + tile_size,
             ymax,
-        };
+        }
     }
 }
 
@@ -132,7 +132,7 @@ mod tests {
     use rstest::rstest;
 
     fn approx_eq(l: f64, r: f64, precision: f64) -> bool {
-        return (l - r).abs() < precision;
+        (l - r).abs() < precision
     }
 
     fn approx_eq_bounds(l: &Bounds, r: &Bounds, precision: f64) -> bool {
@@ -147,9 +147,9 @@ mod tests {
     #[case(-180., 0., -ORIGIN, 0.)]
     #[case(-180., -90., -ORIGIN, -20037508.6269291)]
     #[case(-180., -85.051129, -ORIGIN, -20037508.6269291)]
-    fn test_geo_to_mercator(#[case] lon: f64, #[case] lat: f64, #[case] x: f64, #[case] y: f64) {
+    fn geo_to_mercator(#[case] lon: f64, #[case] lat: f64, #[case] x: f64, #[case] y: f64) {
         let eps = 1e-6;
-        let (actual_x, actual_y) = geo_to_mercator(lon, lat);
+        let (actual_x, actual_y) = super::geo_to_mercator(lon, lat);
         assert!(
             approx_eq(actual_x, x, eps) && approx_eq(actual_y, y, eps),
             "({},{})!=({},{})",
@@ -161,7 +161,7 @@ mod tests {
     }
 
     #[test]
-    fn test_new_tileid() {
+    fn new_tileid() {
         let t = TileID::new(4, 0, 1);
         assert_eq!(
             t,
@@ -177,7 +177,7 @@ mod tests {
     #[case(TileID{zoom: 0, x: 0, y: 0}, Bounds{xmin: -180.0, ymin: -85.051129, xmax: 180.0, ymax: 85.051129})]
     #[case(TileID{zoom: 1, x: 1, y: 1}, Bounds{xmin: 0.0, ymin: -85.051129, xmax: 180.0, ymax: 0.0})]
     #[case(TileID{zoom: 10, x: 20, y: 30}, Bounds{xmin: -172.968750, ymin: 84.016022, xmax: -172.617188, ymax: 84.052561})]
-    fn test_tile_geo_bounds(#[case] tile: TileID, #[case] bounds: Bounds) {
+    fn geo_bounds(#[case] tile: TileID, #[case] bounds: Bounds) {
         let actual = tile.geo_bounds();
         assert!(
             approx_eq_bounds(&actual, &bounds, 1e-6),
@@ -191,7 +191,7 @@ mod tests {
     #[case(TileID{zoom: 0, x: 0, y: 0}, Bounds{xmin: -20037508.342789, ymin: -20037508.342789, xmax: 20037508.342789, ymax: 20037508.342789})]
     #[case(TileID{zoom: 1, x: 1, y: 1}, Bounds{xmin: 0.0, ymin: -20037508.342789, xmax: 20037508.342789, ymax: 0.0})]
     #[case(TileID{zoom: 10, x: 20, y: 30}, Bounds{xmin: -19254793.173149, ymin: 18824299.829847, xmax: -19215657.414667, ymax: 18863435.588329})]
-    fn test_tile_mercator_bounds(#[case] tile: TileID, #[case] bounds: Bounds) {
+    fn mercator_bounds(#[case] tile: TileID, #[case] bounds: Bounds) {
         let actual = tile.mercator_bounds();
         assert!(
             approx_eq_bounds(&actual, &bounds, 1e-6),
@@ -207,7 +207,7 @@ mod tests {
     #[case(1, Bounds{xmin: -180.0, ymin: -90.0, xmax: 0.0, ymax: 90.0}, TileID{zoom: 1, x: 0, y: 0}, TileID{zoom: 1, x: 0, y: 1})]
     #[case(4, Bounds{xmin: -100.0, ymin: -20.0, xmax: -20.0, ymax: 20.0}, TileID{zoom: 4, x: 3, y: 7}, TileID{zoom: 4, x: 7, y: 8})]
     #[case(4, Bounds{xmin: -1e-6, ymin: -1e-6, xmax: 1e-6, ymax: 1e-6}, TileID{zoom: 4, x: 7, y: 7}, TileID{zoom: 4, x: 8, y: 8})]
-    fn test_tile_range(
+    fn tile_range(
         #[case] zoom: u8,
         #[case] bounds: Bounds,
         #[case] min_tile: TileID,
@@ -216,8 +216,8 @@ mod tests {
         let expected = (min_tile, max_tile);
 
         // convert to Mercator bounds
-        let (xmin, ymin) = geo_to_mercator(bounds.xmin, bounds.ymin);
-        let (xmax, ymax) = geo_to_mercator(bounds.xmax, bounds.ymax);
+        let (xmin, ymin) = super::geo_to_mercator(bounds.xmin, bounds.ymin);
+        let (xmax, ymax) = super::geo_to_mercator(bounds.xmax, bounds.ymax);
 
         let mercator_bounds = Bounds {
             xmin,
