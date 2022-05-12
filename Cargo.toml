@@ -1,9 +1,20 @@
 [package]
-name = "rustrastertiler"
+author = "Brendan C. Ward"
+name = "rastertiler"
+about = "Render a single-band GeoTIFF to MBTiles"
+
 version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+clap = { version = "3.1.18", features = ["derive"] }
+gdal = "0.12.0"
+gdal-sys = "0.6.0"
+r2d2 = "0.8.9"
+r2d2_sqlite = "0.20.0"
+rusqlite = "0.27.0"
+
+[dev-dependencies]
 rstest = "0.12.0"
