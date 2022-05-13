@@ -1,7 +1,13 @@
 use clap::{CommandFactory, ErrorKind, Parser};
 use std::path::PathBuf;
 
+mod affine;
+mod bounds;
+mod dataset;
 mod mbtiles;
+mod tileid;
+
+use crate::dataset::Dataset;
 use crate::mbtiles::MBTiles;
 
 #[derive(Parser, Debug)]
@@ -73,6 +79,10 @@ fn main() {
 
     // TODO: parse / validate colormap
 
+    let dataset = Dataset::open(&args.tiff).unwrap();
+    let geo_bounds = dataset.geo_bounds().unwrap();
+    let mercator_bounds = dataset.mercator_bounds().unwrap();
+
     let db = MBTiles::new(&args.mbtiles, args.workers).unwrap();
 
     let mut metadata = Vec::<(&str, &str)>::new();
@@ -93,6 +103,23 @@ fn main() {
     metadata.push(("maxzoom", &maxzoom_str));
 
     // TODO: calculate bounds and set in metadata
+    let bounds_str = format!(
+        "{:.5},{:.5},{:.5},{:.5}",
+        geo_bounds.xmin, geo_bounds.ymin, geo_bounds.xmax, geo_bounds.ymax
+    );
+    metadata.push(("bounds", &bounds_str));
+
+    let center_str = format!(
+        "{:.5},{:.5},{}",
+        (geo_bounds.xmax - geo_bounds.xmin) / 2.,
+        (geo_bounds.ymax - geo_bounds.ymin) / 2.,
+        args.minzoom
+    );
+    metadata.push(("center", &center_str));
+
+    metadata.push(("type", "overlay"));
+    metadata.push(("format", "png"));
+    metadata.push(("version", "1.0.0"));
 
     db.set_metadata(&metadata).unwrap();
 

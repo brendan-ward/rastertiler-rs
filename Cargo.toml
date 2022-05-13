@@ -2,15 +2,14 @@
 author = "Brendan C. Ward"
 name = "rastertiler"
 about = "Render a single-band GeoTIFF to MBTiles"
-
 version = "0.1.0"
 edition = "2021"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+license = "MIT/Apache-2.0"
 
 [dependencies]
 clap = { version = "3.1.18", features = ["derive"] }
-gdal = "0.12.0"
+# gdal = "0.12.0"
+gdal = {path = "../georust_gdal"}
 gdal-sys = "0.6.0"
 r2d2 = "0.8.9"
 r2d2_sqlite = "0.20.0"

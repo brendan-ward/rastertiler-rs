@@ -21,11 +21,11 @@ impl fmt::Display for Affine {
 }
 
 impl Affine {
-    fn new(a: f64, b: f64, c: f64, d: f64, e: f64, f: f64) -> Affine {
+    pub fn new(a: f64, b: f64, c: f64, d: f64, e: f64, f: f64) -> Affine {
         Affine { a, b, c, d, e, f }
     }
 
-    fn from_gdal(transform: &[f64; 6]) -> Affine {
+    pub fn from_gdal(transform: &[f64; 6]) -> Affine {
         Affine {
             a: transform[1],
             b: transform[2],
@@ -36,11 +36,11 @@ impl Affine {
         }
     }
 
-    fn to_gdal(&self) -> [f64; 6] {
+    pub fn to_gdal(&self) -> [f64; 6] {
         [self.c, self.a, self.b, self.f, self.d, self.e]
     }
 
-    fn invert(&self) -> Affine {
+    pub fn invert(&self) -> Affine {
         let inv_determinant = 1.0 / (self.a * self.e - self.b * self.d);
         let a = self.e * inv_determinant;
         let b = -self.b * inv_determinant;
@@ -57,14 +57,14 @@ impl Affine {
         }
     }
 
-    fn multiply(&self, x: f64, y: f64) -> (f64, f64) {
+    pub fn multiply(&self, x: f64, y: f64) -> (f64, f64) {
         (
             x * self.a + y * self.b + self.c,
             x * self.d + y * self.e + self.f,
         )
     }
 
-    fn scale(&self, x: f64, y: f64) -> Affine {
+    pub fn scale(&self, x: f64, y: f64) -> Affine {
         Affine {
             a: self.a * x,
             b: self.b,
@@ -75,7 +75,7 @@ impl Affine {
         }
     }
 
-    fn resolution(&self) -> (f64, f64) {
+    pub fn resolution(&self) -> (f64, f64) {
         (self.a.abs(), self.e.abs())
     }
 }

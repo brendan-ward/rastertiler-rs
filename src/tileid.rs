@@ -1,5 +1,7 @@
 use std::f64::consts::PI;
 
+use crate::bounds::Bounds;
+
 const RE: f64 = 6378137.0;
 const ORIGIN: f64 = RE * PI;
 const CE: f64 = 2.0 * ORIGIN;
@@ -34,14 +36,6 @@ pub struct TileID {
     pub zoom: u8,
     pub x: u32,
     pub y: u32,
-}
-
-#[derive(Debug)]
-pub struct Bounds {
-    pub xmin: f64,
-    pub ymin: f64,
-    pub xmax: f64,
-    pub ymax: f64,
 }
 
 impl TileID {
