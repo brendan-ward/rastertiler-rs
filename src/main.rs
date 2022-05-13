@@ -6,6 +6,7 @@ mod bounds;
 mod dataset;
 mod mbtiles;
 mod tileid;
+mod window;
 
 use crate::dataset::Dataset;
 use crate::mbtiles::MBTiles;
@@ -102,7 +103,6 @@ fn main() {
     metadata.push(("minzoom", &minzoom_str));
     metadata.push(("maxzoom", &maxzoom_str));
 
-    // TODO: calculate bounds and set in metadata
     let bounds_str = format!(
         "{:.5},{:.5},{:.5},{:.5}",
         geo_bounds.xmin, geo_bounds.ymin, geo_bounds.xmax, geo_bounds.ymax
@@ -125,6 +125,12 @@ fn main() {
 
     // TODO: lots of processing
 
+    // TODO: start threads
+    // TODO: reopen dataset in each thread
+    let vrt = dataset.merctor_vrt().unwrap();
+
+    // end threads
+
     db.close().unwrap();
 }
 
@@ -146,4 +152,30 @@ fn parse_zoom(s: &str) -> Result<u8, String> {
         return Err(String::from("must be no greater than 24"));
     }
     return Ok(zoom);
+}
+
+#[cfg(test)]
+mod test {
+    use crate::affine::Affine;
+    use crate::bounds::Bounds;
+
+    pub fn approx_eq(l: f64, r: f64, precision: f64) -> bool {
+        (l - r).abs() < precision
+    }
+
+    pub fn approx_equal_affine(l: &Affine, r: &Affine, precision: f64) -> bool {
+        approx_eq(l.a, r.a, precision)
+            && approx_eq(l.b, r.b, precision)
+            && approx_eq(l.c, r.c, precision)
+            && approx_eq(l.d, r.d, precision)
+            && approx_eq(l.e, r.e, precision)
+            && approx_eq(l.f, r.f, precision)
+    }
+
+    pub fn approx_eq_bounds(l: &Bounds, r: &Bounds, precision: f64) -> bool {
+        approx_eq(l.xmin, r.xmin, precision)
+            && approx_eq(l.ymin, r.ymin, precision)
+            && approx_eq(l.xmax, r.xmax, precision)
+            && approx_eq(l.ymax, r.ymax, precision)
+    }
 }

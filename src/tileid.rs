@@ -17,7 +17,6 @@ const DEG2RAD: f64 = PI / 180.0;
 ///
 /// # Returns
 /// (x, y)
-
 fn geo_to_mercator(lon: f64, lat: f64) -> (f64, f64) {
     // clamp x to -180 to 180 range
     let lon = lon.max(-180.0).min(180.0);
@@ -123,18 +122,8 @@ impl TileID {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test::{approx_eq, approx_eq_bounds};
     use rstest::rstest;
-
-    fn approx_eq(l: f64, r: f64, precision: f64) -> bool {
-        (l - r).abs() < precision
-    }
-
-    fn approx_eq_bounds(l: &Bounds, r: &Bounds, precision: f64) -> bool {
-        approx_eq(l.xmin, r.xmin, precision)
-            && approx_eq(l.ymin, r.ymin, precision)
-            && approx_eq(l.xmax, r.xmax, precision)
-            && approx_eq(l.ymax, r.ymax, precision)
-    }
 
     #[rstest]
     #[case(0., 0., 0., 0.)]

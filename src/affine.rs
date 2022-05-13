@@ -83,19 +83,7 @@ impl Affine {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    fn approx_eq(l: f64, r: f64, precision: f64) -> bool {
-        (l - r).abs() < precision
-    }
-
-    fn approx_equal_affine(l: &Affine, r: &Affine, precision: f64) -> bool {
-        approx_eq(l.a, r.a, precision)
-            && approx_eq(l.b, r.b, precision)
-            && approx_eq(l.c, r.c, precision)
-            && approx_eq(l.d, r.d, precision)
-            && approx_eq(l.e, r.e, precision)
-            && approx_eq(l.f, r.f, precision)
-    }
+    use crate::test::{approx_eq, approx_equal_affine};
 
     #[test]
     fn from_gdal() {

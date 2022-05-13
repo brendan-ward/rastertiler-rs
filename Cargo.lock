@@ -391,6 +391,7 @@ dependencies = [
  "clap",
  "gdal",
  "gdal-sys 0.6.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "libc",
  "r2d2",
  "r2d2_sqlite",
  "rstest",
