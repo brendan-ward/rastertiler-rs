@@ -4,12 +4,13 @@ use std::ffi::CString;
 use std::path::PathBuf;
 use std::ptr::null_mut;
 
-use gdal::raster::{Buffer, GdalType, RasterBand};
+use gdal::raster::{GdalType, RasterBand, ResampleAlg};
 use gdal::spatial_ref::{CoordTransform, SpatialRef};
 use gdal::Dataset as GDALDataset;
 use gdal_sys::{GDALAutoCreateWarpedVRT, GDALDatasetH, GDALResampleAlg};
 
 use crate::affine::Affine;
+use crate::array::{all_equals, print_2d, set_all, shift};
 use crate::bounds::Bounds;
 use crate::tileid::TileID;
 use crate::window::Window;
@@ -65,12 +66,10 @@ impl Dataset {
     }
 
     pub fn geo_bounds(&self) -> Result<Bounds, Box<dyn Error>> {
-        let bounds = self.bounds()?;
         self.transform_bounds(&SpatialRef::from_definition("OGC:CRS84")?)
     }
 
     pub fn mercator_bounds(&self) -> Result<Bounds, Box<dyn Error>> {
-        let bounds = self.bounds()?;
         self.transform_bounds(&SpatialRef::from_epsg(3857)?)
     }
 
@@ -107,17 +106,24 @@ impl Dataset {
         Ok(self.ds.rasterband(band_index)?)
     }
 
-    // Result<Buffer<T>, Box<dyn Error>>
-    pub fn read_tile<T: Copy + GdalType>(
+    /// Read tile data into buffer
+    ///
+    /// # Returns
+    /// Some(bool) if read is successful; value of bool indicates if tile has data
+    /// None if there is an error
+    pub fn read_tile<T: Copy + PartialEq + GdalType + std::fmt::Debug>(
         &self,
         band: &RasterBand,
         tile_id: TileID,
-        tile_size: u16,
+        tile_size: usize,
         buffer: &mut [T],
-    ) -> Result<(), Box<dyn Error>> {
+        nodata: T,
+    ) -> Result<bool, Box<dyn Error>> {
         let size = tile_size as f64;
 
         let (vrt_width, vrt_height) = self.ds.raster_size();
+        let vrt_width_f = vrt_width as f64;
+        let vrt_height_f = vrt_height as f64;
         let vrt_transform = Affine::from_gdal(&self.ds.geo_transform()?);
         let vrt_bounds = self.bounds()?;
 
@@ -134,13 +140,71 @@ impl Dataset {
         let bottom = (((vrt_bounds.ymin - tile_bounds.ymin) / yres).round()).max(0.);
         let top = (((tile_bounds.ymax - vrt_bounds.ymax) / yres).round()).max(0.);
 
-        let width = (size - left - right).round() as i32;
-        let height = (size - top - bottom).round() as i32;
+        // calculate width and height in coordinates of VRT
+        let width = (size - left - right).round() as usize;
+        let height = (size - top - bottom).round() as usize;
 
-        // FIXME:
-        Ok(())
+        let x_offset = (((window.x_offset).max(0.)).min(vrt_width_f)).round();
+        let y_offset = (((window.y_offset).max(0.)).min(vrt_height_f)).round();
+        let x_stop = ((window.x_offset + window.width).min(vrt_width_f)).max(0.);
+        let y_stop = ((window.y_offset + window.height).min(vrt_height_f)).max(0.);
 
-        // TODO: other stuff
-        // rasterband.read_into_slice::<u8>((20, 30), (2, 3), (2, 3),TODO:buffer, None)
+        let read_width = ((x_stop - x_offset) + 0.5).floor() as usize;
+        let read_height = ((y_stop - y_offset) + 0.5).floor() as usize;
+
+        println!(
+            "Debug tile={:?}: window=({},{}), read_dims=({},{}), dims=({},{}=>{})",
+            tile_id,
+            x_offset,
+            y_offset,
+            read_width,
+            read_height,
+            width,
+            height,
+            width * height
+        );
+        println!("buffer size: {}", buffer[0..(width * height)].len());
+
+        if read_width <= 0 || read_height <= 0 {
+            println!("Tile is outside dataset extent");
+            // to data available within extent of dataset
+            return Ok(false);
+        }
+
+        // reset buffer to NODATA
+        set_all(buffer, nodata);
+
+        // read full or partial tile
+        band.read_into_slice(
+            (x_offset as isize, y_offset as isize),
+            (read_width, read_height),
+            (width, height),
+            &mut buffer[0..(width * height)],
+            Some(ResampleAlg::NearestNeighbour),
+        )?;
+
+        if all_equals(buffer, nodata) {
+            println!("Tile is empty");
+            return Ok(false);
+        }
+
+        // println!("before");
+        // print_2d(buffer, (width, height));
+
+        if width < tile_size || height < tile_size {
+            // partial tile
+            shift(
+                buffer,
+                (width, height),
+                (tile_size, tile_size),
+                (left as usize, top as usize),
+                nodata,
+            );
+
+            // println!("\n\nafter");
+            // print_2d(buffer, (tile_size, tile_size));
+        }
+
+        Ok(true)
     }
 }

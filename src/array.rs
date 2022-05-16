@@ -12,6 +12,45 @@ pub fn set_all<T: Copy>(buffer: &mut [T], value: T) {
     buffer.iter_mut().for_each(|x| *x = value);
 }
 
+/// Shift values that are stored at the head of the buffer based on size
+/// and move these to positions within the buffer based on target size and offset,
+/// backfilling the moved pixels with fill.
+///
+/// # Parameters
+/// * buffer: full slice within which original values are stored and values are
+///           to be written
+/// * size: shape of the input region (width, height)
+/// * target_size: shape of the full buffer (width, height)
+/// * offset: (offset_x, offset_y)
+/// * fill: fill value to backfill pixels after moving them
+pub fn shift<T: Copy>(
+    buffer: &mut [T],
+    size: (usize, usize),
+    target_size: (usize, usize),
+    offset: (usize, usize),
+    fill: T,
+) {
+    // start from last pixel in source part of buffer
+    let mut src_index: usize;
+    let mut dest_index: usize;
+    for row in (0..size.1).rev() {
+        for col in (0..size.0).rev() {
+            src_index = row * size.0 + col;
+            dest_index = (row + offset.1) * target_size.0 + (col + offset.0);
+            buffer[dest_index] = buffer[src_index];
+            buffer[src_index] = fill;
+        }
+    }
+}
+
+pub fn print_2d<T: std::fmt::Debug>(buffer: &[T], size: (usize, usize)) {
+    let mut start: usize;
+    for row in 0..size.1 {
+        start = row * size.1;
+        println!("{:?}", &buffer[start..(start + size.0)]);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -83,5 +122,33 @@ mod tests {
         test_set_all_for_type(0u32, 1u32);
         test_set_all_for_type(0i64, 1i64);
         test_set_all_for_type(0u64, 1u64);
+    }
+
+    #[test]
+    fn test_shift() {
+        // first 2 pixels are filled based on a shape of 1 col x 2 rows (filled
+        // into front of buffer)
+        #[rustfmt::skip]
+        let mut buffer: [u8; 12] = [
+            1, 2, 0, 0,
+            0, 0, 0, 0,
+            0, 0, 0, 0
+        ];
+        let size: (usize, usize) = (1, 2);
+
+        #[rustfmt::skip]
+        let expected: [u8; 12] = [
+            0, 0, 0, 0,
+            0, 0, 1, 0,
+            0, 0, 2, 0
+        ];
+        let target_size: (usize, usize) = (4, 3);
+        let offset: (usize, usize) = (2, 1);
+
+        shift(&mut buffer, size, target_size, offset, 0);
+
+        println!("results:\n{:?}", buffer);
+
+        assert!(equals(&buffer, &expected));
     }
 }

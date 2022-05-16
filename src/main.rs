@@ -1,7 +1,9 @@
 use clap::{CommandFactory, ErrorKind, Parser};
+use gdal::raster::Buffer;
 use std::path::PathBuf;
 
 mod affine;
+mod array;
 mod bounds;
 mod dataset;
 mod mbtiles;
@@ -10,6 +12,7 @@ mod window;
 
 use crate::dataset::Dataset;
 use crate::mbtiles::MBTiles;
+use crate::tileid::TileID;
 
 #[derive(Parser, Debug)]
 #[clap(author, version, about)]
@@ -28,7 +31,7 @@ struct Cli {
 
     /// Tile size in pixels per side
     #[clap(short = 's', long, default_value_t = 512)]
-    tilesize: u16,
+    tilesize: usize,
 
     /// Tileset name
     #[clap(short = 'n', long)]
@@ -82,7 +85,7 @@ fn main() {
 
     let dataset = Dataset::open(&args.tiff).unwrap();
     let geo_bounds = dataset.geo_bounds().unwrap();
-    let mercator_bounds = dataset.mercator_bounds().unwrap();
+    // let mercator_bounds = dataset.mercator_bounds().unwrap();
 
     let db = MBTiles::new(&args.mbtiles, args.workers).unwrap();
 
@@ -123,11 +126,25 @@ fn main() {
 
     db.set_metadata(&metadata).unwrap();
 
+    // let tilesize: usize = args.tilesize as usize;
+
     // TODO: lots of processing
 
     // TODO: start threads
+
     // TODO: reopen dataset in each thread
     let vrt = dataset.merctor_vrt().unwrap();
+    let band = vrt.band(1).unwrap();
+
+    // TODO how to make this dynamic with respect to dtype
+    let nodata = band.no_data_value().unwrap() as u8;
+    let mut buffer = vec![nodata; args.tilesize * args.tilesize];
+
+    // loop over tiles
+    let tile_id = TileID::new(0, 0, 0);
+
+    vrt.read_tile(&band, tile_id, args.tilesize, &mut buffer, nodata)
+        .unwrap();
 
     // end threads
 
