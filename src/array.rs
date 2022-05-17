@@ -43,11 +43,24 @@ pub fn shift<T: Copy>(
     }
 }
 
-pub fn print_2d<T: std::fmt::Debug>(buffer: &[T], size: (usize, usize)) {
-    let mut start: usize;
+pub fn print_2d<T: PartialEq + Ord + std::fmt::Debug>(
+    buffer: &[T],
+    size: (usize, usize),
+    nodata: T,
+) {
+    let max = buffer.iter().filter(|x| **x != nodata).max().unwrap();
+    let padding = format!("{:?}", max).len() + 1;
     for row in 0..size.1 {
-        start = row * size.1;
-        println!("{:?}", &buffer[start..(start + size.0)]);
+        if row > 0 {
+            println!();
+        }
+        for col in 0..size.0 {
+            if buffer[row * size.0 + col] == nodata {
+                print!("{:<width$}", "-", width = padding);
+            } else {
+                print!("{:<width$?}", buffer[row * size.0 + col], width = padding);
+            }
+        }
     }
 }
 
