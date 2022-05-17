@@ -6,6 +6,7 @@ use std::path::PathBuf;
 mod affine;
 mod array;
 mod bounds;
+mod color;
 mod dataset;
 mod mbtiles;
 mod png;
@@ -14,7 +15,7 @@ mod window;
 
 use crate::dataset::Dataset;
 use crate::mbtiles::MBTiles;
-use crate::png::{Encode, GrayscaleEncoder};
+use crate::png::{ColormapEncoder, Encode, GrayscaleEncoder};
 use crate::tileid::TileID;
 
 #[derive(Parser, Debug)]
@@ -152,7 +153,13 @@ fn main() {
         _ => panic!("Data type not  supported: {:?}", band.band_type()),
     };
 
-    let encoder = GrayscaleEncoder::new(args.tilesize as u32, args.tilesize as u32);
+    // let encoder = GrayscaleEncoder::new(args.tilesize as u32, args.tilesize as u32);
+    let encoder = ColormapEncoder::new(
+        args.tilesize as u32,
+        args.tilesize as u32,
+        &args.colormap.unwrap(),
+    )
+    .unwrap();
 
     // loop over tiles
     let tile_id = TileID::new(0, 0, 0);
