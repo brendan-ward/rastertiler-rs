@@ -115,10 +115,11 @@ impl Dataset {
         &self,
         band: &RasterBand,
         tile_id: TileID,
-        tile_size: usize,
+        tile_size: u16,
         buffer: &mut [T],
         nodata: T,
     ) -> Result<bool, Box<dyn Error>> {
+        let tile_size = tile_size as usize;
         let size = tile_size as f64;
 
         let (vrt_width, vrt_height) = self.ds.raster_size();
@@ -136,7 +137,7 @@ impl Dataset {
         let (xres, yres) = tile_transform.resolution();
 
         let left = (((vrt_bounds.xmin - tile_bounds.xmin) / xres).round()).max(0.);
-        let right = (((vrt_bounds.xmax - tile_bounds.xmax) / xres).round()).max(0.);
+        let right = (((tile_bounds.xmax - vrt_bounds.xmax) / xres).round()).max(0.);
         let bottom = (((vrt_bounds.ymin - tile_bounds.ymin) / yres).round()).max(0.);
         let top = (((tile_bounds.ymax - vrt_bounds.ymax) / yres).round()).max(0.);
 
@@ -148,6 +149,8 @@ impl Dataset {
         let y_offset = (((window.y_offset).max(0.)).min(vrt_height_f)).round();
         let x_stop = ((window.x_offset + window.width).min(vrt_width_f)).max(0.);
         let y_stop = ((window.y_offset + window.height).min(vrt_height_f)).max(0.);
+
+        println!("box: ({},{},{},{})", left, right, bottom, top);
 
         let read_width = ((x_stop - x_offset) + 0.5).floor() as usize;
         let read_height = ((y_stop - y_offset) + 0.5).floor() as usize;
@@ -163,7 +166,6 @@ impl Dataset {
             height,
             width * height
         );
-        println!("buffer size: {}", buffer[0..(width * height)].len());
 
         if read_width <= 0 || read_height <= 0 {
             println!("Tile is outside dataset extent");

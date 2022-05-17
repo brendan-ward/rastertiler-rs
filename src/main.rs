@@ -1,5 +1,6 @@
 use clap::{CommandFactory, ErrorKind, Parser};
-use gdal::raster::Buffer;
+use gdal::raster::GDALDataType;
+use std::fs;
 use std::path::PathBuf;
 
 mod affine;
@@ -7,11 +8,13 @@ mod array;
 mod bounds;
 mod dataset;
 mod mbtiles;
+mod png;
 mod tileid;
 mod window;
 
 use crate::dataset::Dataset;
 use crate::mbtiles::MBTiles;
+use crate::png::{Encode, GrayscaleEncoder};
 use crate::tileid::TileID;
 
 #[derive(Parser, Debug)]
@@ -31,7 +34,7 @@ struct Cli {
 
     /// Tile size in pixels per side
     #[clap(short = 's', long, default_value_t = 512)]
-    tilesize: usize,
+    tilesize: u16,
 
     /// Tileset name
     #[clap(short = 'n', long)]
@@ -136,15 +139,31 @@ fn main() {
     let vrt = dataset.merctor_vrt().unwrap();
     let band = vrt.band(1).unwrap();
 
-    // TODO how to make this dynamic with respect to dtype
+    // TODO: figure out how to make this dynamic with respect to dtype
     let nodata = band.no_data_value().unwrap() as u8;
-    let mut buffer = vec![nodata; args.tilesize * args.tilesize];
+
+    let mut buffer = match band.band_type() {
+        GDALDataType::GDT_Byte => {
+            vec![nodata as u8; (args.tilesize as usize * args.tilesize as usize) as usize]
+        }
+        // GDALDataType::GDT_UInt16 => {
+        //     vec![nodata as u16; (args.tilesize * args.tilesize) as usize]
+        // }
+        _ => panic!("Data type not  supported: {:?}", band.band_type()),
+    };
+
+    let encoder = GrayscaleEncoder::new(args.tilesize as u32, args.tilesize as u32);
 
     // loop over tiles
     let tile_id = TileID::new(0, 0, 0);
 
     vrt.read_tile(&band, tile_id, args.tilesize, &mut buffer, nodata)
         .unwrap();
+
+    // let png_data = to_grayscale(&buffer, args.tilesize, args.tilesize).unwrap();
+    let png_data = encoder.encode(&buffer).unwrap();
+
+    fs::write("/tmp/test.png", png_data).unwrap();
 
     // end threads
 
