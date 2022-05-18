@@ -31,7 +31,7 @@ fn geo_to_mercator(lon: f64, lat: f64) -> (f64, f64) {
     (x, y)
 }
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Eq, PartialEq, Copy, Clone)]
 pub struct TileID {
     pub zoom: u8,
     pub x: u32,

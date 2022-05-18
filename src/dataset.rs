@@ -10,31 +10,20 @@ use gdal::Dataset as GDALDataset;
 use gdal_sys::{GDALAutoCreateWarpedVRT, GDALDatasetH, GDALResampleAlg};
 
 use crate::affine::Affine;
-use crate::array::{all_equals, print_2d, set_all, shift};
+use crate::array::{all_equals, set_all, shift};
 use crate::bounds::Bounds;
 use crate::tileid::TileID;
 use crate::window::Window;
 
-// D
 pub struct Dataset {
     ds: GDALDataset,
 }
 
 impl Dataset {
     pub fn open(path: &PathBuf) -> Result<Dataset, Box<dyn Error>> {
-        let d = GDALDataset::open(path)?;
-
-        // let transform = d.geo_transform()?;
-
-        // // also has spatial_ref object
-        // let crs = d.projection();
-
-        // let (width, height) = d.raster_size();
-        // println!("Dimensions: {}, {}", width, height);
-
-        // let b: RasterBand = d.rasterband(1)?;
-
-        Ok(Dataset { ds: d })
+        Ok(Dataset {
+            ds: GDALDataset::open(path)?,
+        })
     }
 
     pub fn bounds(&self) -> Result<Bounds, Box<dyn Error>> {
@@ -98,7 +87,7 @@ impl Dataset {
         Ok(Dataset { ds: gdal_dataset })
     }
 
-    pub fn merctor_vrt(&self) -> Result<Dataset, Box<dyn Error>> {
+    pub fn mercator_vrt(&self) -> Result<Dataset, Box<dyn Error>> {
         return self.warped_vrt(&SpatialRef::from_epsg(3857)?);
     }
 
@@ -150,25 +139,23 @@ impl Dataset {
         let x_stop = ((window.x_offset + window.width).min(vrt_width_f)).max(0.);
         let y_stop = ((window.y_offset + window.height).min(vrt_height_f)).max(0.);
 
-        println!("box: ({},{},{},{})", left, right, bottom, top);
-
         let read_width = ((x_stop - x_offset) + 0.5).floor() as usize;
         let read_height = ((y_stop - y_offset) + 0.5).floor() as usize;
 
-        println!(
-            "Debug tile={:?}: window=({},{}), read_dims=({},{}), dims=({},{}=>{})",
-            tile_id,
-            x_offset,
-            y_offset,
-            read_width,
-            read_height,
-            width,
-            height,
-            width * height
-        );
+        // println!("box: ({},{},{},{})", left, right, bottom, top);
+        // println!(
+        //     "Debug tile={:?}: window=({},{}), read_dims=({},{}), dims=({},{}=>{})",
+        //     tile_id,
+        //     x_offset,
+        //     y_offset,
+        //     read_width,
+        //     read_height,
+        //     width,
+        //     height,
+        //     width * height
+        // );
 
         if read_width <= 0 || read_height <= 0 {
-            println!("Tile is outside dataset extent");
             // to data available within extent of dataset
             return Ok(false);
         }
@@ -186,12 +173,8 @@ impl Dataset {
         )?;
 
         if all_equals(buffer, nodata) {
-            println!("Tile is empty");
             return Ok(false);
         }
-
-        // println!("before");
-        // print_2d(buffer, (width, height), nodata);
 
         if width < tile_size || height < tile_size {
             // partial tile
@@ -202,9 +185,6 @@ impl Dataset {
                 (left as usize, top as usize),
                 nodata,
             );
-
-            // println!("\n\nafter");
-            // print_2d(buffer, (tile_size, tile_size), nodata);
         }
 
         Ok(true)

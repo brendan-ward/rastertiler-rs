@@ -89,7 +89,7 @@ fn main() {
 
     let dataset = Dataset::open(&args.tiff).unwrap();
     let geo_bounds = dataset.geo_bounds().unwrap();
-    // let mercator_bounds = dataset.mercator_bounds().unwrap();
+    let mercator_bounds = dataset.mercator_bounds().unwrap();
 
     let db = MBTiles::new(&args.mbtiles, args.workers).unwrap();
 
@@ -136,8 +136,10 @@ fn main() {
 
     // TODO: start threads
 
+    let conn = db.get_connection().unwrap();
+
     // TODO: reopen dataset in each thread
-    let vrt = dataset.merctor_vrt().unwrap();
+    let vrt = dataset.mercator_vrt().unwrap();
     let band = vrt.band(1).unwrap();
 
     // TODO: figure out how to make this dynamic with respect to dtype
@@ -153,24 +155,42 @@ fn main() {
         _ => panic!("Data type not  supported: {:?}", band.band_type()),
     };
 
-    // let encoder = GrayscaleEncoder::new(args.tilesize as u32, args.tilesize as u32);
-    let encoder = ColormapEncoder::new(
-        args.tilesize as u32,
-        args.tilesize as u32,
-        &args.colormap.unwrap(),
-    )
-    .unwrap();
+    let encoder: Box<dyn Encode> = match band.band_type() {
+        GDALDataType::GDT_Byte => match args.colormap {
+            Some(c) => Box::new(
+                ColormapEncoder::new(args.tilesize as u32, args.tilesize as u32, &c).unwrap(),
+            ),
+            _ => Box::new(GrayscaleEncoder::new(
+                args.tilesize as u32,
+                args.tilesize as u32,
+            )),
+        },
+        _ => panic!("Data type not  supported: {:?}", band.band_type()),
+    };
 
     // loop over tiles
-    let tile_id = TileID::new(0, 0, 0);
+    // let tile_id = TileID::new(0, 0, 0);
 
-    vrt.read_tile(&band, tile_id, args.tilesize, &mut buffer, nodata)
-        .unwrap();
+    let mut has_data: bool;
+    for zoom in args.minzoom..(args.maxzoom + 1) {
+        for tile_id in TileID::range(zoom, &mercator_bounds) {
+            has_data = vrt
+                .read_tile(&band, tile_id, args.tilesize, &mut buffer, nodata)
+                .unwrap();
 
-    // let png_data = to_grayscale(&buffer, args.tilesize, args.tilesize).unwrap();
-    let png_data = encoder.encode(&buffer).unwrap();
+            if has_data {
+                let png_data = encoder.encode(&buffer).unwrap();
 
-    fs::write("/tmp/test.png", png_data).unwrap();
+                db.write_tile(&conn, &tile_id, &png_data);
+
+                // fs::write(
+                //     format!("/tmp/test_{}_{}_{}.png", tile_id.zoom, tile_id.x, tile_id.y),
+                //     png_data,
+                // )
+                // .unwrap();
+            }
+        }
+    }
 
     // end threads
 
