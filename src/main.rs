@@ -91,110 +91,113 @@ fn main() {
     let geo_bounds = dataset.geo_bounds().unwrap();
     let mercator_bounds = dataset.mercator_bounds().unwrap();
 
-    let db = MBTiles::new(&args.mbtiles, args.workers).unwrap();
+    {
+        let db = MBTiles::new(&args.mbtiles, args.workers).unwrap();
 
-    let mut metadata = Vec::<(&str, &str)>::new();
-    metadata.push(("name", &name));
+        let mut metadata = Vec::<(&str, &str)>::new();
+        metadata.push(("name", &name));
 
-    if args.description.is_some() {
-        metadata.push(("description", args.description.as_ref().unwrap()));
-    }
-
-    if args.attribution.is_some() {
-        metadata.push(("attribution", args.attribution.as_ref().unwrap()));
-    }
-
-    let minzoom_str = format!("{}", args.minzoom);
-    let maxzoom_str = format!("{}", args.maxzoom);
-
-    metadata.push(("minzoom", &minzoom_str));
-    metadata.push(("maxzoom", &maxzoom_str));
-
-    let bounds_str = format!(
-        "{:.5},{:.5},{:.5},{:.5}",
-        geo_bounds.xmin, geo_bounds.ymin, geo_bounds.xmax, geo_bounds.ymax
-    );
-    metadata.push(("bounds", &bounds_str));
-
-    let center_str = format!(
-        "{:.5},{:.5},{}",
-        (geo_bounds.xmax - geo_bounds.xmin) / 2.,
-        (geo_bounds.ymax - geo_bounds.ymin) / 2.,
-        args.minzoom
-    );
-    metadata.push(("center", &center_str));
-
-    metadata.push(("type", "overlay"));
-    metadata.push(("format", "png"));
-    metadata.push(("version", "1.0.0"));
-
-    db.set_metadata(&metadata).unwrap();
-
-    // let tilesize: usize = args.tilesize as usize;
-
-    // TODO: lots of processing
-
-    // TODO: start threads
-
-    let conn = db.get_connection().unwrap();
-
-    // TODO: reopen dataset in each thread
-    let vrt = dataset.mercator_vrt().unwrap();
-    let band = vrt.band(1).unwrap();
-
-    // TODO: figure out how to make this dynamic with respect to dtype
-    let nodata = band.no_data_value().unwrap() as u8;
-
-    let mut buffer = match band.band_type() {
-        GDALDataType::GDT_Byte => {
-            vec![nodata as u8; (args.tilesize as usize * args.tilesize as usize) as usize]
+        if args.description.is_some() {
+            metadata.push(("description", args.description.as_ref().unwrap()));
         }
-        // GDALDataType::GDT_UInt16 => {
-        //     vec![nodata as u16; (args.tilesize * args.tilesize) as usize]
-        // }
-        _ => panic!("Data type not  supported: {:?}", band.band_type()),
-    };
 
-    let encoder: Box<dyn Encode> = match band.band_type() {
-        GDALDataType::GDT_Byte => match args.colormap {
-            Some(c) => Box::new(
-                ColormapEncoder::new(args.tilesize as u32, args.tilesize as u32, &c).unwrap(),
-            ),
-            _ => Box::new(GrayscaleEncoder::new(
-                args.tilesize as u32,
-                args.tilesize as u32,
-            )),
-        },
-        _ => panic!("Data type not  supported: {:?}", band.band_type()),
-    };
+        if args.attribution.is_some() {
+            metadata.push(("attribution", args.attribution.as_ref().unwrap()));
+        }
 
-    // loop over tiles
-    // let tile_id = TileID::new(0, 0, 0);
+        let minzoom_str = format!("{}", args.minzoom);
+        let maxzoom_str = format!("{}", args.maxzoom);
 
-    let mut has_data: bool;
-    for zoom in args.minzoom..(args.maxzoom + 1) {
-        for tile_id in TileID::range(zoom, &mercator_bounds) {
-            has_data = vrt
-                .read_tile(&band, tile_id, args.tilesize, &mut buffer, nodata)
-                .unwrap();
+        metadata.push(("minzoom", &minzoom_str));
+        metadata.push(("maxzoom", &maxzoom_str));
 
-            if has_data {
-                let png_data = encoder.encode(&buffer).unwrap();
+        let bounds_str = format!(
+            "{:.5},{:.5},{:.5},{:.5}",
+            geo_bounds.xmin, geo_bounds.ymin, geo_bounds.xmax, geo_bounds.ymax
+        );
+        metadata.push(("bounds", &bounds_str));
 
-                db.write_tile(&conn, &tile_id, &png_data);
+        let center_str = format!(
+            "{:.5},{:.5},{}",
+            (geo_bounds.xmax - geo_bounds.xmin) / 2.,
+            (geo_bounds.ymax - geo_bounds.ymin) / 2.,
+            args.minzoom
+        );
+        metadata.push(("center", &center_str));
 
-                // fs::write(
-                //     format!("/tmp/test_{}_{}_{}.png", tile_id.zoom, tile_id.x, tile_id.y),
-                //     png_data,
-                // )
-                // .unwrap();
+        metadata.push(("type", "overlay"));
+        metadata.push(("format", "png"));
+        metadata.push(("version", "1.0.0"));
+
+        db.set_metadata(&metadata).unwrap();
+
+        // let tilesize: usize = args.tilesize as usize;
+
+        // TODO: lots of processing
+
+        // TODO: start threads
+
+        let conn = db.get_connection().unwrap();
+
+        // TODO: reopen dataset in each thread
+        let vrt = dataset.mercator_vrt().unwrap();
+        let band = vrt.band(1).unwrap();
+
+        // TODO: figure out how to make this dynamic with respect to dtype
+        let nodata = band.no_data_value().unwrap() as u8;
+
+        let mut buffer = match band.band_type() {
+            GDALDataType::GDT_Byte => {
+                vec![nodata as u8; (args.tilesize as usize * args.tilesize as usize) as usize]
+            }
+            // GDALDataType::GDT_UInt16 => {
+            //     vec![nodata as u16; (args.tilesize * args.tilesize) as usize]
+            // }
+            _ => panic!("Data type not  supported: {:?}", band.band_type()),
+        };
+
+        let encoder: Box<dyn Encode> = match band.band_type() {
+            GDALDataType::GDT_Byte => match args.colormap {
+                Some(c) => Box::new(
+                    ColormapEncoder::new(args.tilesize as u32, args.tilesize as u32, &c).unwrap(),
+                ),
+                _ => Box::new(GrayscaleEncoder::new(
+                    args.tilesize as u32,
+                    args.tilesize as u32,
+                )),
+            },
+            _ => panic!("Data type not  supported: {:?}", band.band_type()),
+        };
+
+        // loop over tiles
+        let mut has_data: bool;
+        for zoom in args.minzoom..(args.maxzoom + 1) {
+            for tile_id in TileID::range(zoom, &mercator_bounds) {
+                has_data = vrt
+                    .read_tile(&band, tile_id, args.tilesize, &mut buffer, nodata)
+                    .unwrap();
+
+                if has_data {
+                    let png_data = encoder.encode(&buffer).unwrap();
+
+                    db.write_tile(&conn, &tile_id, &png_data).unwrap();
+
+                    // fs::write(
+                    //     format!("/tmp/test_{}_{}_{}.png", tile_id.zoom, tile_id.x, tile_id.y),
+                    //     png_data,
+                    // )
+                    // .unwrap();
+                }
             }
         }
+
+        // end threads
+
+        db.close().unwrap();
     }
 
-    // end threads
-
-    db.close().unwrap();
+    // change the database back to non-WAL mode
+    MBTiles::flush(&args.mbtiles).unwrap();
 }
 
 fn file_exists(s: &str) -> Result<PathBuf, String> {

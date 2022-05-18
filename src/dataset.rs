@@ -100,7 +100,7 @@ impl Dataset {
     /// # Returns
     /// Some(bool) if read is successful; value of bool indicates if tile has data
     /// None if there is an error
-    pub fn read_tile<T: Copy + PartialEq + Ord + GdalType + std::fmt::Debug>(
+    pub fn read_tile<T: Copy + PartialEq + Ord + GdalType + std::fmt::Debug + std::hash::Hash>(
         &self,
         band: &RasterBand,
         tile_id: TileID,
@@ -176,7 +176,7 @@ impl Dataset {
             return Ok(false);
         }
 
-        if width < tile_size || height < tile_size {
+        if left > 0. || top > 0. || width < tile_size {
             // partial tile
             shift(
                 buffer,

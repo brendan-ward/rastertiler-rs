@@ -8,11 +8,13 @@ use crypto::sha1::Sha1;
 use r2d2::PooledConnection;
 use r2d2_sqlite::SqliteConnectionManager;
 use rusqlite::params;
+use rusqlite::Connection;
 
 use crate::tileid::TileID;
 
-// TODO: pragmas
 const INIT_QUERY: &str = r#"
+PRAGMA journal_mode=WAL;
+
 CREATE TABLE IF NOT EXISTS metadata (name text NOT NULL PRIMARY KEY, value text);
 
 CREATE TABLE IF NOT EXISTS map (
@@ -29,14 +31,20 @@ CREATE VIEW IF NOT EXISTS tiles AS
     FROM map JOIN images ON images.tile_id = map.tile_id;
 "#;
 
-const CREATE_INDEX_QUERY: &str =
-    "CREATE UNIQUE INDEX IF NOT EXISTS map_index ON map (zoom_level, tile_column, tile_row);";
-
 const INSERT_METADATA_QUERY: &str = "INSERT INTO metadata (name,value) VALUES (?, ?)";
 const INSERT_TILE_DATA_QUERY: &str =
     "INSERT OR IGNORE INTO images (tile_id, tile_data) VALUES (?, ?)";
 const INSERT_TILE_QUERY: &str =
     "INSERT INTO map (zoom_level, tile_column, tile_row, tile_id) VALUES(?, ?, ?, ?)";
+
+// PRAGMA journal_mode=DELETE;
+const CLOSE_MBTILES_QUERY: &str = r#"
+CREATE UNIQUE INDEX IF NOT EXISTS map_index ON map (zoom_level, tile_column, tile_row);
+
+PRAGMA wal_checkpoint(TRUNCATE);
+"#;
+
+const RESET_WAL_QUERY: &str = "PRAGMA journal_mode=DELETE";
 
 pub struct MBTiles {
     pool: r2d2::Pool<SqliteConnectionManager>,
@@ -106,7 +114,28 @@ impl MBTiles {
 
     pub fn close(&self) -> Result<(), Box<dyn Error>> {
         let conn = self.pool.get().unwrap();
-        conn.execute(CREATE_INDEX_QUERY, [])?;
+        conn.execute_batch(CLOSE_MBTILES_QUERY)?;
+
+        Ok(())
+    }
+
+    pub fn flush(path: &PathBuf) -> Result<(), Box<dyn Error>> {
+        let conn = Connection::open(path)?;
+        conn.execute_batch(&RESET_WAL_QUERY)?;
+
+        // delete -wal and -shm files if exist
+        let path_str = path.to_str().unwrap();
+        let mut shm_path = PathBuf::new();
+        shm_path.push(format!("{}-shm", path_str));
+        if shm_path.exists() {
+            fs::remove_file(shm_path)?;
+        }
+
+        let mut wal_path = PathBuf::new();
+        wal_path.push(format!("{}-wal", path_str));
+        if wal_path.exists() {
+            fs::remove_file(wal_path)?;
+        }
 
         Ok(())
     }

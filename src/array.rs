@@ -1,3 +1,6 @@
+use std::collections::BTreeMap;
+use std::hash::Hash;
+
 /// Return true if all values in the slice equal the passed in value
 pub fn all_equals<T: PartialEq>(buffer: &[T], value: T) -> bool {
     buffer.iter().all(|x| *x == value)
@@ -10,6 +13,17 @@ pub fn equals<T: PartialEq>(left: &[T], right: &[T]) -> bool {
 /// Set all values in the slice to the passed in value
 pub fn set_all<T: Copy>(buffer: &mut [T], value: T) {
     buffer.iter_mut().for_each(|x| *x = value);
+}
+
+pub fn histogram<T: Copy + Eq + Ord + Hash>(buffer: &[T]) -> BTreeMap<T, u64> {
+    let mut map: BTreeMap<T, u64> = BTreeMap::new();
+    let mut count: u64;
+    for v in buffer.iter() {
+        count = map.get(v).unwrap_or(&0) + 1u64;
+        map.insert(*v, count);
+    }
+
+    map
 }
 
 /// Shift values that are stored at the head of the buffer based on size
@@ -67,12 +81,23 @@ pub fn print_2d<T: PartialEq + Ord + std::fmt::Debug>(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use rstest::rstest;
 
     fn test_set_all_for_type<T: Copy + PartialEq>(init: T, value: T) {
         let mut array: [T; 2] = [init, init];
         set_all(&mut array, value);
         assert!(all_equals(&array, value));
     }
+
+    // fn histogram_is_equal(l: BTreeMap<u8, u64>, r: BTreeMap<u8, u64>) -> bool {
+    //     if l.len() != r.len() {
+    //         return false;
+    //     }
+
+    //     // TODO: all values must be present
+
+    //     return true;
+    // }
 
     #[test]
     fn test_all_equals() {
@@ -159,9 +184,13 @@ mod tests {
         let offset: (usize, usize) = (2, 1);
 
         shift(&mut buffer, size, target_size, offset, 0);
-
-        println!("results:\n{:?}", buffer);
-
         assert!(equals(&buffer, &expected));
+    }
+
+    #[rstest]
+    #[case([0u8,0u8,0u8,0u8], BTreeMap::from([(0u8, 4u64)]))]
+    #[case([0u8,0u8,1u8,0u8], BTreeMap::from([(0u8, 3u64), (1u8, 1u64)]))]
+    fn test_histogram(#[case] buffer: [u8; 4], #[case] expected: BTreeMap<u8, u64>) {
+        assert_eq!(histogram(&buffer), expected);
     }
 }
