@@ -49,41 +49,6 @@ impl TileID {
         TileID { zoom, x, y }
     }
 
-    /// Creates an iterator at zoom level for all tiles covered by bounds.
-    ///
-    /// # Arguments
-    /// * `zoom` - zoom level to cover
-    /// * `bounds` - Bounds object containing Mercator coordinates
-    pub fn range(zoom: u8, bounds: &Bounds) -> impl Iterator<Item = TileID> {
-        let z = (1 << zoom) as f64;
-        let origin = -ORIGIN;
-        let eps = 1e-11;
-
-        let xmin = (((bounds.xmin - origin) / CE) * z)
-            .floor()
-            .max(0.0)
-            .min(z - 1.0) as u32;
-        let ymin = ((1.0 - ((bounds.ymax - origin) / CE)) * z)
-            .floor()
-            .max(0.0)
-            .min(z - 1.0) as u32;
-
-        let xmax = ((((bounds.xmax - origin) / CE) - eps) * z)
-            .floor()
-            .max(0.0)
-            .min(z - 1.0) as u32;
-
-        let ymax = ((1.0 - (((bounds.ymin - origin) / CE) + eps)) * z)
-            .floor()
-            .max(0.0)
-            .min(z - 1.0) as u32;
-
-        //  return iterator over tiles
-        (xmin..xmax + 1)
-            .cartesian_product(ymin..ymax + 1)
-            .map(move |(x, y)| TileID { zoom, x, y })
-    }
-
     pub fn geo_bounds(&self) -> Bounds {
         let z = (1 << self.zoom) as f64;
         let x = self.x as f64;
@@ -111,6 +76,69 @@ impl TileID {
             xmax: xmin + tile_size,
             ymax,
         }
+    }
+}
+
+#[derive(Debug, Eq, PartialEq, Copy, Clone)]
+pub struct TileRange {
+    pub zoom: u8,
+    pub xmin: u32,
+    pub ymin: u32,
+    pub xmax: u32,
+    pub ymax: u32,
+}
+
+impl TileRange {
+    /// Creates a TileRange that covers the bounds at the zoom level
+    ///
+    /// # Arguments
+    /// * `zoom` - zoom level to cover
+    /// * `bounds` - Bounds object containing Mercator coordinates
+    pub fn new(zoom: u8, bounds: &Bounds) -> TileRange {
+        let z = (1 << zoom) as f64;
+        let origin = -ORIGIN;
+        let eps = 1e-11;
+
+        let xmin = (((bounds.xmin - origin) / CE) * z)
+            .floor()
+            .max(0.0)
+            .min(z - 1.0) as u32;
+        let ymin = ((1.0 - ((bounds.ymax - origin) / CE)) * z)
+            .floor()
+            .max(0.0)
+            .min(z - 1.0) as u32;
+
+        let xmax = ((((bounds.xmax - origin) / CE) - eps) * z)
+            .floor()
+            .max(0.0)
+            .min(z - 1.0) as u32;
+
+        let ymax = ((1.0 - (((bounds.ymin - origin) / CE) + eps)) * z)
+            .floor()
+            .max(0.0)
+            .min(z - 1.0) as u32;
+
+        TileRange {
+            zoom,
+            xmin,
+            ymin,
+            xmax,
+            ymax,
+        }
+    }
+
+    pub fn count(&self) -> usize {
+        (self.xmax as usize - self.xmin as usize + 1)
+            * (self.ymax as usize - self.ymin as usize + 1) as usize
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = TileID> {
+        let zoom = self.zoom;
+
+        //  return iterator over tiles
+        (self.xmin..self.xmax + 1)
+            .cartesian_product(self.ymin..self.ymax + 1)
+            .map(move |(x, y)| TileID { zoom, x, y })
     }
 }
 
@@ -180,15 +208,54 @@ mod tests {
     }
 
     #[rstest]
-    #[case(0, Bounds{xmin: -180.0, ymin: -90.0, xmax: 180.0, ymax: 90.0}, 1, TileID{zoom: 0, x: 0, y: 0}, TileID{zoom: 0, x: 0, y: 0})]
-    #[case(1, Bounds{xmin: -180.0, ymin: -90.0, xmax: 180.0, ymax: 90.0}, 4, TileID{zoom: 1, x: 0, y: 0}, TileID { zoom: 1, x: 1, y: 1 })]
-    #[case(1, Bounds{xmin: -180.0, ymin: -90.0, xmax: 0.0, ymax: 90.0}, 2, TileID{zoom: 1, x: 0, y: 0}, TileID { zoom: 1, x: 0, y: 1 })]
-    #[case(4, Bounds{xmin: -100.0, ymin: -20.0, xmax: -20.0, ymax: 20.0}, 10, TileID{zoom: 4, x: 3, y: 7}, TileID { zoom: 4, x: 7, y: 8 })]
-    #[case(4, Bounds{xmin: -1e-6, ymin: -1e-6, xmax: 1e-6, ymax: 1e-6}, 4, TileID{zoom: 4, x: 7, y: 7}, TileID { zoom: 4, x: 8, y: 8 })]
-    fn range(
+    #[case(0, Bounds{xmin: -180.0, ymin: -90.0, xmax: 180.0, ymax: 90.0}, TileRange{zoom: 0, xmin: 0, ymin: 0, xmax: 0, ymax: 0})]
+    #[case(1, Bounds{xmin: -180.0, ymin: -90.0, xmax: 90.0, ymax: 90.0}, TileRange{zoom: 1, xmin: 0, ymin: 0, xmax: 1, ymax: 1})]
+    #[case(1, Bounds{xmin: -180.0, ymin: -90.0, xmax: 0.0, ymax: 90.0}, TileRange{zoom: 1, xmin: 0, ymin: 0, xmax: 0, ymax: 1})]
+    #[case(4, Bounds{xmin: -100.0, ymin: -20.0, xmax: -20.0, ymax: 20.0}, TileRange{zoom: 4, xmin: 3, ymin: 7, xmax: 7, ymax: 8})]
+    #[case(4, Bounds{xmin: -1e-6, ymin: -1e-6, xmax: 1e-6, ymax: 1e-6}, TileRange{zoom: 4, xmin: 7, ymin: 7, xmax: 8, ymax: 8})]
+    fn tile_range(#[case] zoom: u8, #[case] bounds: Bounds, #[case] expected: TileRange) {
+        // convert bounds to Mercator bounds
+        let (xmin, ymin) = super::geo_to_mercator(bounds.xmin, bounds.ymin);
+        let (xmax, ymax) = super::geo_to_mercator(bounds.xmax, bounds.ymax);
+        let mercator_bounds = Bounds {
+            xmin,
+            ymin,
+            xmax,
+            ymax,
+        };
+
+        assert_eq!(TileRange::new(zoom, &mercator_bounds), expected);
+    }
+
+    #[rstest]
+    #[case(0, Bounds{xmin: -180.0, ymin: -90.0, xmax: 180.0, ymax: 90.0}, 1)]
+    #[case(1, Bounds{xmin: -180.0, ymin: -90.0, xmax: 90.0, ymax: 90.0}, 4)]
+    #[case(1, Bounds{xmin: -180.0, ymin: -90.0, xmax: 0.0, ymax: 90.0}, 2)]
+    #[case(4, Bounds{xmin: -100.0, ymin: -20.0, xmax: -20.0, ymax: 20.0}, 10)]
+    #[case(4, Bounds{xmin: -1e-6, ymin: -1e-6, xmax: 1e-6, ymax: 1e-6}, 4)]
+    fn tile_range_count(#[case] zoom: u8, #[case] bounds: Bounds, #[case] expected: usize) {
+        // convert bounds to Mercator bounds
+        let (xmin, ymin) = super::geo_to_mercator(bounds.xmin, bounds.ymin);
+        let (xmax, ymax) = super::geo_to_mercator(bounds.xmax, bounds.ymax);
+        let mercator_bounds = Bounds {
+            xmin,
+            ymin,
+            xmax,
+            ymax,
+        };
+
+        assert_eq!(TileRange::new(zoom, &mercator_bounds).count(), expected);
+    }
+
+    #[rstest]
+    #[case(0, Bounds{xmin: -180.0, ymin: -90.0, xmax: 180.0, ymax: 90.0}, TileID{zoom: 0, x: 0, y: 0}, TileID{zoom: 0, x: 0, y: 0})]
+    #[case(1, Bounds{xmin: -180.0, ymin: -90.0, xmax: 180.0, ymax: 90.0}, TileID{zoom: 1, x: 0, y: 0}, TileID { zoom: 1, x: 1, y: 1 })]
+    #[case(1, Bounds{xmin: -180.0, ymin: -90.0, xmax: 0.0, ymax: 90.0}, TileID{zoom: 1, x: 0, y: 0}, TileID { zoom: 1, x: 0, y: 1 })]
+    #[case(4, Bounds{xmin: -100.0, ymin: -20.0, xmax: -20.0, ymax: 20.0}, TileID{zoom: 4, x: 3, y: 7}, TileID { zoom: 4, x: 7, y: 8 })]
+    #[case(4, Bounds{xmin: -1e-6, ymin: -1e-6, xmax: 1e-6, ymax: 1e-6}, TileID{zoom: 4, x: 7, y: 7}, TileID { zoom: 4, x: 8, y: 8 })]
+    fn tile_range_iter(
         #[case] zoom: u8,
         #[case] bounds: Bounds,
-        #[case] count: usize,
         #[case] first: TileID,
         #[case] last: TileID,
     ) {
@@ -202,9 +269,9 @@ mod tests {
             ymax,
         };
 
-        let actual = TileID::range(zoom, &mercator_bounds).collect::<Vec<TileID>>();
+        let range = TileRange::new(zoom, &mercator_bounds);
+        let actual = range.iter().collect::<Vec<TileID>>();
 
-        assert_eq!(actual.len(), count);
         assert_eq!(*actual.first().unwrap(), first);
         assert_eq!(*actual.last().unwrap(), last);
     }

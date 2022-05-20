@@ -3,12 +3,11 @@ use std::fs;
 use std::path::PathBuf;
 use std::result::Result;
 
-use crypto::digest::Digest;
-use crypto::sha1::Sha1;
 use r2d2::PooledConnection;
 use r2d2_sqlite::SqliteConnectionManager;
 use rusqlite::params;
 use rusqlite::Connection;
+use seahash::hash;
 
 use crate::tileid::TileID;
 
@@ -21,10 +20,10 @@ CREATE TABLE IF NOT EXISTS map (
     zoom_level INTEGER,
     tile_column INTEGER,
     tile_row INTEGER,
-    tile_id TEXT
+    tile_id sqlite3_int64
 );
 
-CREATE TABLE IF NOT EXISTS images (tile_id text NOT NULL PRIMARY KEY, tile_data blob);
+CREATE TABLE IF NOT EXISTS images (tile_id sqlite3_int64 NOT NULL PRIMARY KEY, tile_data blob);
 
 CREATE VIEW IF NOT EXISTS tiles AS
     SELECT zoom_level, tile_column, tile_row, tile_data
@@ -96,9 +95,7 @@ impl MBTiles {
         tile_id: &TileID,
         png_data: &[u8],
     ) -> Result<(), Box<dyn Error>> {
-        let mut sha1 = Sha1::new();
-        sha1.input(png_data);
-        let id = sha1.result_str();
+        let id = hash(png_data) as i64;
 
         let mut query = conn.prepare_cached(INSERT_TILE_DATA_QUERY)?;
         query.execute(params![id, png_data])?;

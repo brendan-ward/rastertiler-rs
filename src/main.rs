@@ -1,7 +1,12 @@
-use clap::{CommandFactory, ErrorKind, Parser};
-use gdal::raster::GDALDataType;
 use std::fs;
 use std::path::PathBuf;
+
+use clap::{CommandFactory, ErrorKind, Parser};
+use gdal::raster::GDALDataType;
+use indicatif::{ProgressBar, ProgressStyle};
+
+use std::fs::File;
+extern crate png as png_ext;
 
 mod affine;
 mod array;
@@ -16,7 +21,7 @@ mod window;
 use crate::dataset::Dataset;
 use crate::mbtiles::MBTiles;
 use crate::png::{ColormapEncoder, Encode, GrayscaleEncoder};
-use crate::tileid::TileID;
+use crate::tileid::TileRange;
 
 #[derive(Parser, Debug)]
 #[clap(author, version, about)]
@@ -91,44 +96,44 @@ fn main() {
     let geo_bounds = dataset.geo_bounds().unwrap();
     let mercator_bounds = dataset.mercator_bounds().unwrap();
 
+    let mut metadata = Vec::<(&str, &str)>::new();
+    metadata.push(("name", &name));
+
+    if args.description.is_some() {
+        metadata.push(("description", args.description.as_ref().unwrap()));
+    }
+
+    if args.attribution.is_some() {
+        metadata.push(("attribution", args.attribution.as_ref().unwrap()));
+    }
+
+    let minzoom_str = format!("{}", args.minzoom);
+    let maxzoom_str = format!("{}", args.maxzoom);
+
+    metadata.push(("minzoom", &minzoom_str));
+    metadata.push(("maxzoom", &maxzoom_str));
+
+    let bounds_str = format!(
+        "{:.5},{:.5},{:.5},{:.5}",
+        geo_bounds.xmin, geo_bounds.ymin, geo_bounds.xmax, geo_bounds.ymax
+    );
+    metadata.push(("bounds", &bounds_str));
+
+    let center_str = format!(
+        "{:.5},{:.5},{}",
+        (geo_bounds.xmax - geo_bounds.xmin) / 2.,
+        (geo_bounds.ymax - geo_bounds.ymin) / 2.,
+        args.minzoom
+    );
+    metadata.push(("center", &center_str));
+
+    metadata.push(("type", "overlay"));
+    metadata.push(("format", "png"));
+    metadata.push(("version", "1.0.0"));
+
+    // in a block so that connections are dropped to force flush / close
     {
         let db = MBTiles::new(&args.mbtiles, args.workers).unwrap();
-
-        let mut metadata = Vec::<(&str, &str)>::new();
-        metadata.push(("name", &name));
-
-        if args.description.is_some() {
-            metadata.push(("description", args.description.as_ref().unwrap()));
-        }
-
-        if args.attribution.is_some() {
-            metadata.push(("attribution", args.attribution.as_ref().unwrap()));
-        }
-
-        let minzoom_str = format!("{}", args.minzoom);
-        let maxzoom_str = format!("{}", args.maxzoom);
-
-        metadata.push(("minzoom", &minzoom_str));
-        metadata.push(("maxzoom", &maxzoom_str));
-
-        let bounds_str = format!(
-            "{:.5},{:.5},{:.5},{:.5}",
-            geo_bounds.xmin, geo_bounds.ymin, geo_bounds.xmax, geo_bounds.ymax
-        );
-        metadata.push(("bounds", &bounds_str));
-
-        let center_str = format!(
-            "{:.5},{:.5},{}",
-            (geo_bounds.xmax - geo_bounds.xmin) / 2.,
-            (geo_bounds.ymax - geo_bounds.ymin) / 2.,
-            args.minzoom
-        );
-        metadata.push(("center", &center_str));
-
-        metadata.push(("type", "overlay"));
-        metadata.push(("format", "png"));
-        metadata.push(("version", "1.0.0"));
-
         db.set_metadata(&metadata).unwrap();
 
         // let tilesize: usize = args.tilesize as usize;
@@ -171,8 +176,18 @@ fn main() {
 
         // loop over tiles
         let mut has_data: bool;
+        let mut tiles: TileRange;
+
         for zoom in args.minzoom..(args.maxzoom + 1) {
-            for tile_id in TileID::range(zoom, &mercator_bounds) {
+            tiles = TileRange::new(zoom, &mercator_bounds);
+            let bar = ProgressBar::new(tiles.count() as u64)
+                .with_style(ProgressStyle::default_bar().template(
+                    "{prefix:<8} {bar:50} {pos}/{len} {msg} [elapsed: {elapsed_precise}]]",
+                ))
+                .with_prefix(format!("zoom: {}", zoom));
+
+            for tile_id in tiles.iter() {
+                bar.inc(1);
                 has_data = vrt
                     .read_tile(&band, tile_id, args.tilesize, &mut buffer, nodata)
                     .unwrap();
@@ -189,6 +204,8 @@ fn main() {
                     // .unwrap();
                 }
             }
+
+            bar.finish();
         }
 
         // end threads

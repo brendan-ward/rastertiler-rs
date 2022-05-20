@@ -1,5 +1,5 @@
 use hex;
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::error::Error;
 
 #[derive(Debug, Eq, PartialEq)]
@@ -27,15 +27,14 @@ impl Color {
 
 #[derive(Debug)]
 pub struct Colormap {
-    values: HashMap<u8, u8>,
+    values: BTreeMap<u8, u8>,
     colors: Vec<u8>,
     transparency: Vec<u8>,
 }
 
 impl Colormap {
-    // TODO: transparency for values outside range
     pub fn new(colormap: &str) -> Result<Colormap, Box<dyn Error>> {
-        let mut values: HashMap<u8, u8> = HashMap::new();
+        let mut values: BTreeMap<u8, u8> = BTreeMap::new();
         let num_colors = colormap.matches(",").count() + 2;
         let mut colors: Vec<u8> = Vec::with_capacity(num_colors * 3);
         let mut transparency: Vec<u8> = Vec::with_capacity(num_colors);
@@ -57,8 +56,6 @@ impl Colormap {
         colors.push(0);
         transparency.push(0);
 
-        // TODO: push transparent
-
         Ok(Colormap {
             values,
             colors,
@@ -68,8 +65,8 @@ impl Colormap {
 
     /// Return index value for input value, returning index beyond length of
     /// indexes if not found (corresponds to transparent)
-    pub fn get_index(&self, value: &u8) -> u8 {
-        match self.values.get(value) {
+    pub fn get_index(&self, value: u8) -> u8 {
+        match self.values.get(&value) {
             Some(v) => *v,
             _ => self.values.len() as u8,
         }
@@ -81,6 +78,10 @@ impl Colormap {
 
     pub fn get_transparency(&self) -> &Vec<u8> {
         &self.transparency
+    }
+
+    pub fn len(&self) -> usize {
+        self.colors.len() / 3
     }
 }
 
