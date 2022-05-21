@@ -1,12 +1,10 @@
-use std::fs;
 use std::path::PathBuf;
+use std::sync::Arc;
 
 use clap::{CommandFactory, ErrorKind, Parser};
+use crossbeam::channel;
 use gdal::raster::GDALDataType;
 use indicatif::{ProgressBar, ProgressStyle};
-
-use std::fs::File;
-extern crate png as png_ext;
 
 mod affine;
 mod array;
@@ -21,7 +19,7 @@ mod window;
 use crate::dataset::Dataset;
 use crate::mbtiles::MBTiles;
 use crate::png::{ColormapEncoder, Encode, GrayscaleEncoder};
-use crate::tileid::TileRange;
+use crate::tileid::{TileID, TileRange};
 
 #[derive(Parser, Debug)]
 #[clap(author, version, about)]
@@ -90,9 +88,9 @@ fn main() {
         args.mbtiles.file_stem().unwrap().to_str().unwrap(),
     ));
 
-    // TODO: parse / validate colormap
-
     let dataset = Dataset::open(&args.tiff).unwrap();
+    let band = dataset.band(1).unwrap();
+    let dtype = band.band_type();
     let geo_bounds = dataset.geo_bounds().unwrap();
     let mercator_bounds = dataset.mercator_bounds().unwrap();
 
@@ -131,84 +129,63 @@ fn main() {
     metadata.push(("format", "png"));
     metadata.push(("version", "1.0.0"));
 
+    let encoder: Arc<dyn Encode + Send + Sync> = match dtype {
+        GDALDataType::GDT_Byte => match args.colormap {
+            Some(c) => Arc::new(
+                ColormapEncoder::new(args.tilesize as u32, args.tilesize as u32, &c).unwrap(),
+            ),
+            _ => Arc::new(GrayscaleEncoder::new(
+                args.tilesize as u32,
+                args.tilesize as u32,
+            )),
+        },
+        _ => panic!("Data type not  supported: {:?}", dtype),
+    };
+
+    // close dataset; will be opened in each thread
+    drop(dataset);
+
     // in a block so that connections are dropped to force flush / close
     {
         let db = MBTiles::new(&args.mbtiles, args.workers).unwrap();
         db.set_metadata(&metadata).unwrap();
 
-        // let tilesize: usize = args.tilesize as usize;
+        let (snd1, rcv1) = channel::bounded(1);
 
-        // TODO: lots of processing
+        crossbeam::scope(|s| {
+            // add tiles to queue
+            s.spawn(|_| {
+                let mut tiles: TileRange;
 
-        // TODO: start threads
+                for zoom in args.minzoom..(args.maxzoom + 1) {
+                    tiles = TileRange::new(zoom, &mercator_bounds);
+                    let bar = ProgressBar::new(tiles.count() as u64)
+                        .with_style(ProgressStyle::default_bar().template(
+                            "{prefix:<8} {bar:50} {pos}/{len} {msg} [elapsed: {elapsed_precise}]]",
+                        ))
+                        .with_prefix(format!("zoom: {}", zoom));
 
-        let conn = db.get_connection().unwrap();
+                    for tile_id in tiles.iter() {
+                        snd1.send(tile_id).unwrap();
+                        bar.inc(1);
+                    }
 
-        // TODO: reopen dataset in each thread
-        let vrt = dataset.mercator_vrt().unwrap();
-        let band = vrt.band(1).unwrap();
-
-        // TODO: figure out how to make this dynamic with respect to dtype
-        let nodata = band.no_data_value().unwrap() as u8;
-
-        let mut buffer = match band.band_type() {
-            GDALDataType::GDT_Byte => {
-                vec![nodata as u8; (args.tilesize as usize * args.tilesize as usize) as usize]
-            }
-            // GDALDataType::GDT_UInt16 => {
-            //     vec![nodata as u16; (args.tilesize * args.tilesize) as usize]
-            // }
-            _ => panic!("Data type not  supported: {:?}", band.band_type()),
-        };
-
-        let encoder: Box<dyn Encode> = match band.band_type() {
-            GDALDataType::GDT_Byte => match args.colormap {
-                Some(c) => Box::new(
-                    ColormapEncoder::new(args.tilesize as u32, args.tilesize as u32, &c).unwrap(),
-                ),
-                _ => Box::new(GrayscaleEncoder::new(
-                    args.tilesize as u32,
-                    args.tilesize as u32,
-                )),
-            },
-            _ => panic!("Data type not  supported: {:?}", band.band_type()),
-        };
-
-        // loop over tiles
-        let mut has_data: bool;
-        let mut tiles: TileRange;
-
-        for zoom in args.minzoom..(args.maxzoom + 1) {
-            tiles = TileRange::new(zoom, &mercator_bounds);
-            let bar = ProgressBar::new(tiles.count() as u64)
-                .with_style(ProgressStyle::default_bar().template(
-                    "{prefix:<8} {bar:50} {pos}/{len} {msg} [elapsed: {elapsed_precise}]]",
-                ))
-                .with_prefix(format!("zoom: {}", zoom));
-
-            for tile_id in tiles.iter() {
-                bar.inc(1);
-                has_data = vrt
-                    .read_tile(&band, tile_id, args.tilesize, &mut buffer, nodata)
-                    .unwrap();
-
-                if has_data {
-                    let png_data = encoder.encode(&buffer).unwrap();
-
-                    db.write_tile(&conn, &tile_id, &png_data).unwrap();
-
-                    // fs::write(
-                    //     format!("/tmp/test_{}_{}_{}.png", tile_id.zoom, tile_id.x, tile_id.y),
-                    //     png_data,
-                    // )
-                    // .unwrap();
+                    bar.finish();
                 }
+                drop(snd1);
+            });
+
+            for _ in 0..args.workers {
+                let recvr = rcv1.clone();
+                let tiff = &args.tiff;
+                let db = &db;
+                let encoder = &encoder;
+                s.spawn(move |_| {
+                    worker(recvr, tiff, db, args.tilesize, encoder);
+                });
             }
-
-            bar.finish();
-        }
-
-        // end threads
+        })
+        .unwrap();
 
         db.close().unwrap();
     }
@@ -235,6 +212,47 @@ fn parse_zoom(s: &str) -> Result<u8, String> {
         return Err(String::from("must be no greater than 24"));
     }
     return Ok(zoom);
+}
+
+fn worker(
+    tiles: channel::Receiver<TileID>,
+    tiff_filename: &PathBuf,
+    db: &MBTiles,
+    tilesize: u16,
+    encoder: &Arc<dyn Encode + Send + Sync>,
+) {
+    let dataset = Dataset::open(tiff_filename).unwrap();
+    let vrt = dataset.mercator_vrt().unwrap();
+    let band = vrt.band(1).unwrap();
+
+    let conn = db.get_connection().unwrap();
+
+    // // TODO: figure out how to make this dynamic with respect to dtype
+    let nodata = band.no_data_value().unwrap() as u8;
+
+    let mut buffer = match band.band_type() {
+        GDALDataType::GDT_Byte => {
+            vec![nodata as u8; (tilesize as usize * tilesize as usize) as usize]
+        }
+        // GDALDataType::GDT_UInt16 => {
+        //     vec![nodata as u16; (args.tilesize * args.tilesize) as usize]
+        // }
+        _ => panic!("Data type not  supported: {:?}", band.band_type()),
+    };
+
+    let mut has_data: bool;
+    for tile_id in tiles.iter() {
+        // println!("tile: {:?}", tile_id);
+        has_data = vrt
+            .read_tile(&band, tile_id, tilesize, &mut buffer, nodata)
+            .unwrap();
+
+        if has_data {
+            let png_data = encoder.encode(&buffer).unwrap();
+
+            db.write_tile(&conn, &tile_id, &png_data).unwrap();
+        }
+    }
 }
 
 #[cfg(test)]

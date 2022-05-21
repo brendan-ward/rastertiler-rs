@@ -3,8 +3,6 @@ use png::{BitDepth, ColorType, Compression, Encoder, FilterType};
 use std::error::Error;
 use std::io::BufWriter;
 
-use crate::array::histogram;
-
 pub trait Encode {
     fn encode(&self, buffer: &[u8]) -> Result<Vec<u8>, Box<dyn Error>>;
 }
@@ -36,6 +34,8 @@ impl Encode for GrayscaleEncoder {
 
             encoder.set_color(ColorType::Grayscale);
             encoder.set_depth(BitDepth::Eight);
+            // turn off filter, according to PNG book
+            encoder.set_filter(FilterType::NoFilter);
 
             let mut writer = encoder.write_header()?;
             writer.write_image_data(buffer)?;
