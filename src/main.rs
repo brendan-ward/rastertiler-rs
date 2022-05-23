@@ -251,12 +251,6 @@ fn worker(
         if has_data {
             let png_data = encoder.encode(&buffer)?;
             db.write_tile(&conn, &tile_id, &png_data)?;
-
-            std::fs::write(
-                format!("/tmp/test_{}_{}_{}.png", tile_id.zoom, tile_id.x, tile_id.y),
-                png_data,
-            )
-            .unwrap();
         }
     }
 
