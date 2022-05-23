@@ -18,9 +18,9 @@ impl ColormapEncoder {
         let colormap = Colormap::new(colormap)?;
 
         let depth = match colormap.len() {
-            l if l < 2 => BitDepth::One,
-            l if l < 4 => BitDepth::Two,
-            l if l < 16 => BitDepth::Four,
+            l if l <= 2 => BitDepth::One,
+            l if l <= 4 => BitDepth::Two,
+            l if l <= 16 => BitDepth::Four,
             _ => BitDepth::Eight,
         };
 

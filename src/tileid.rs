@@ -6,8 +6,6 @@ use crate::bounds::Bounds;
 const RE: f64 = 6378137.0;
 const ORIGIN: f64 = RE * PI;
 const CE: f64 = 2.0 * ORIGIN;
-const RAD2DEG: f64 = 180.0 / PI;
-const DEG2RAD: f64 = PI / 180.0;
 
 /// Calculate Mercator coordinates for geographic coordinates.
 /// Coordinates are clipped to -180 to 180 and -85.051129 to 85.051129.
@@ -19,6 +17,8 @@ const DEG2RAD: f64 = PI / 180.0;
 /// # Returns
 /// (x, y)
 fn geo_to_mercator(lon: f64, lat: f64) -> (f64, f64) {
+    let deg2rad: f64 = PI / 180.0;
+
     // clamp x to -180 to 180 range
     let lon = lon.max(-180.0).min(180.0);
 
@@ -26,7 +26,7 @@ fn geo_to_mercator(lon: f64, lat: f64) -> (f64, f64) {
     let lat = lat.max(-85.051129).min(85.051129);
 
     let x = lon * (ORIGIN / 180.0);
-    let y = RE * ((PI * 0.25) + (0.5 * DEG2RAD * lat)).tan().ln();
+    let y = RE * ((PI * 0.25) + (0.5 * deg2rad * lat)).tan().ln();
 
     (x, y)
 }
@@ -50,15 +50,16 @@ impl TileID {
     }
 
     pub fn geo_bounds(&self) -> Bounds {
+        let rad2deg: f64 = 180.0 / PI;
         let z = (1 << self.zoom) as f64;
         let x = self.x as f64;
         let y = self.y as f64;
 
         Bounds {
             xmin: x / z * 360.0 - 180.0,
-            ymin: (PI * (1.0 - 2.0 * ((y + 1.0) / z))).sinh().atan() * RAD2DEG,
+            ymin: (PI * (1.0 - 2.0 * ((y + 1.0) / z))).sinh().atan() * rad2deg,
             xmax: (x + 1.0) / z * 360.0 - 180.0,
-            ymax: (PI * (1.0 - 2.0 * y / z)).sinh().atan() * RAD2DEG,
+            ymax: (PI * (1.0 - 2.0 * y / z)).sinh().atan() * rad2deg,
         }
     }
     pub fn mercator_bounds(&self) -> Bounds {

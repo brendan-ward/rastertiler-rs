@@ -4,6 +4,10 @@ A tool to create a PNG MBtiles tileset from a single-band GeoTIFF.
 
 Requires GDAL >= 3.4 to be installed on the system.
 
+## WARNING
+
+This is still under early development and a lot of validation is not yet in place.
+
 ## Installation
 
 ### Development
@@ -59,6 +63,17 @@ To use a colormap to render the `uint8` data to paletted PNG
 ```bash
 rastertiler create example.tif example.mbtiles --minzoom 0 --maxzoom 2 --colormap "1:#686868,2:#fbb4b9,3:#c51b8a,4:#49006a"
 ```
+
+Any values in the GeoTIFF that are not present in the colormap are converted to
+transparent pixels.
+
+The colormap renderer will automatically select the smallest bit depth that can
+hold all values of the colormap plus a transparency value:
+
+-   a colormap with 1 value will be output as a 1-bit PNG
+-   a colormap with 3 values will be output as a 2-bit PNG
+-   a colormap with 14 values will be output as a 4-bit PNG
+-   otherwise will be output as an 8-bit PNG
 
 ## Credits
 
