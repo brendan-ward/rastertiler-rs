@@ -103,7 +103,7 @@ impl MBTiles {
         let mut query = conn.prepare_cached(INSERT_TILE_QUERY)?;
 
         // flip tile Y to match mbtiles spec
-        let y = (1u8 << tile_id.zoom) as u32 - 1u32 - tile_id.y;
+        let y = (1u32 << tile_id.zoom as u32) - 1u32 - tile_id.y;
         query.execute(params![tile_id.zoom, tile_id.x, y, id])?;
 
         Ok(())

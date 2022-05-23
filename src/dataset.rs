@@ -144,7 +144,7 @@ impl Dataset {
 
         // println!("box: ({},{},{},{})", left, right, bottom, top);
         // println!(
-        //     "Debug tile={:?}: window=({},{}), read_dims=({},{}), dims=({},{}=>{})",
+        //     "Debug tile={:?}: window=({},{}), read_dims=({},{}), data_dims=({},{}), data_offset=({},{})",
         //     tile_id,
         //     x_offset,
         //     y_offset,
@@ -152,7 +152,8 @@ impl Dataset {
         //     read_height,
         //     width,
         //     height,
-        //     width * height
+        //     left,
+        //     top
         // );
 
         if read_width <= 0 || read_height <= 0 {

@@ -1,3 +1,4 @@
+use std::error::Error;
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -137,6 +138,7 @@ fn main() {
             _ => Arc::new(GrayscaleEncoder::new(
                 args.tilesize as u32,
                 args.tilesize as u32,
+                band.no_data_value().unwrap() as u8,
             )),
         },
         _ => panic!("Data type not  supported: {:?}", dtype),
@@ -150,13 +152,12 @@ fn main() {
         let db = MBTiles::new(&args.mbtiles, args.workers).unwrap();
         db.set_metadata(&metadata).unwrap();
 
-        let (snd1, rcv1) = channel::bounded(1);
+        let (snd, rcv) = channel::bounded(1);
 
         crossbeam::scope(|s| {
             // add tiles to queue
             s.spawn(|_| {
                 let mut tiles: TileRange;
-
                 for zoom in args.minzoom..(args.maxzoom + 1) {
                     tiles = TileRange::new(zoom, &mercator_bounds);
                     let bar = ProgressBar::new(tiles.count() as u64)
@@ -166,22 +167,22 @@ fn main() {
                         .with_prefix(format!("zoom: {}", zoom));
 
                     for tile_id in tiles.iter() {
-                        snd1.send(tile_id).unwrap();
+                        snd.send(tile_id).unwrap();
                         bar.inc(1);
                     }
 
                     bar.finish();
                 }
-                drop(snd1);
+                drop(snd);
             });
 
             for _ in 0..args.workers {
-                let recvr = rcv1.clone();
+                let rcv = rcv.clone();
                 let tiff = &args.tiff;
                 let db = &db;
-                let encoder = &encoder;
+                let encoder = encoder.clone();
                 s.spawn(move |_| {
-                    worker(recvr, tiff, db, args.tilesize, encoder);
+                    worker(rcv, tiff, db, args.tilesize, &encoder).unwrap();
                 });
             }
         })
@@ -220,14 +221,14 @@ fn worker(
     db: &MBTiles,
     tilesize: u16,
     encoder: &Arc<dyn Encode + Send + Sync>,
-) {
-    let dataset = Dataset::open(tiff_filename).unwrap();
-    let vrt = dataset.mercator_vrt().unwrap();
-    let band = vrt.band(1).unwrap();
+) -> Result<(), Box<dyn Error>> {
+    let dataset = Dataset::open(tiff_filename)?;
+    let vrt = dataset.mercator_vrt()?;
+    let band = vrt.band(1)?;
 
-    let conn = db.get_connection().unwrap();
+    let conn = db.get_connection()?;
 
-    // // TODO: figure out how to make this dynamic with respect to dtype
+    // TODO: figure out how to make this dynamic with respect to dtype
     let nodata = band.no_data_value().unwrap() as u8;
 
     let mut buffer = match band.band_type() {
@@ -242,17 +243,21 @@ fn worker(
 
     let mut has_data: bool;
     for tile_id in tiles.iter() {
-        // println!("tile: {:?}", tile_id);
-        has_data = vrt
-            .read_tile(&band, tile_id, tilesize, &mut buffer, nodata)
-            .unwrap();
+        has_data = vrt.read_tile(&band, tile_id, tilesize, &mut buffer, nodata)?;
 
         if has_data {
-            let png_data = encoder.encode(&buffer).unwrap();
+            let png_data = encoder.encode(&buffer)?;
+            db.write_tile(&conn, &tile_id, &png_data)?;
 
-            db.write_tile(&conn, &tile_id, &png_data).unwrap();
+            std::fs::write(
+                format!("/tmp/test_{}_{}_{}.png", tile_id.zoom, tile_id.x, tile_id.y),
+                png_data,
+            )
+            .unwrap();
         }
     }
+
+    Ok(())
 }
 
 #[cfg(test)]

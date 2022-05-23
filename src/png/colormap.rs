@@ -3,47 +3,7 @@ use png::{BitDepth, ColorType, Compression, Encoder, FilterType};
 use std::error::Error;
 use std::io::BufWriter;
 
-pub trait Encode {
-    fn encode(&self, buffer: &[u8]) -> Result<Vec<u8>, Box<dyn Error>>;
-}
-
-#[derive(Debug)]
-pub struct GrayscaleEncoder {
-    width: u32,
-    height: u32,
-}
-
-impl GrayscaleEncoder {
-    pub fn new(width: u32, height: u32) -> GrayscaleEncoder {
-        GrayscaleEncoder { width, height }
-    }
-}
-
-impl Encode for GrayscaleEncoder {
-    fn encode(&self, buffer: &[u8]) -> Result<Vec<u8>, Box<dyn Error>> {
-        // TODO: may want to pass in or internally provide png_buffer to reduce allocations
-        let mut png_buffer: Vec<u8> = Vec::new();
-
-        // in a block to force writer to finish writing on drop
-        {
-            let mut encoder = Encoder::new(
-                BufWriter::new(&mut png_buffer),
-                self.width as u32,
-                self.height as u32,
-            );
-
-            encoder.set_color(ColorType::Grayscale);
-            encoder.set_depth(BitDepth::Eight);
-            // turn off filter, according to PNG book
-            encoder.set_filter(FilterType::NoFilter);
-
-            let mut writer = encoder.write_header()?;
-            writer.write_image_data(buffer)?;
-        }
-
-        Ok(png_buffer)
-    }
-}
+use crate::png::Encode;
 
 #[derive(Debug)]
 pub struct ColormapEncoder {
@@ -124,37 +84,38 @@ impl Encode for ColormapEncoder {
     fn encode(&self, buffer: &[u8]) -> Result<Vec<u8>, Box<dyn Error>> {
         let mut png_buffer: Vec<u8> = Vec::new();
 
-        {
-            let mut encoder = Encoder::new(
-                BufWriter::new(&mut png_buffer),
-                self.width as u32,
-                self.height as u32,
-            );
+        let mut encoder = Encoder::new(
+            BufWriter::new(&mut png_buffer),
+            self.width as u32,
+            self.height as u32,
+        );
 
-            encoder.set_color(ColorType::Indexed);
-            encoder.set_compression(Compression::Best);
-            // turn off filter, not useful for paletted PNGs
-            encoder.set_filter(FilterType::NoFilter);
+        encoder.set_color(ColorType::Indexed);
+        encoder.set_compression(Compression::Best);
+        // turn off filter, not useful for paletted PNGs
+        encoder.set_filter(FilterType::NoFilter);
 
-            encoder.set_depth(self.depth);
-            encoder.set_palette(self.colormap.get_colors());
-            encoder.set_trns(self.colormap.get_transparency());
+        encoder.set_depth(self.depth);
+        encoder.set_palette(self.colormap.get_colors());
+        encoder.set_trns(self.colormap.get_transparency());
 
-            let mut writer = encoder.write_header()?;
+        let mut writer = encoder.write_header()?;
 
-            let pixels: Vec<u8> = match self.depth {
-                BitDepth::One => self.pack_1bit(buffer),
-                BitDepth::Two => self.pack_2bit(buffer),
-                BitDepth::Four => self.pack_4bit(buffer),
-                BitDepth::Eight => buffer
-                    .iter()
-                    .map(|&v| self.colormap.get_index(v))
-                    .collect::<Vec<u8>>(),
-                _ => unreachable!(),
-            };
+        let pixels: Vec<u8> = match self.depth {
+            BitDepth::One => self.pack_1bit(buffer),
+            BitDepth::Two => self.pack_2bit(buffer),
+            BitDepth::Four => self.pack_4bit(buffer),
+            BitDepth::Eight => buffer
+                .iter()
+                .map(|&v| self.colormap.get_index(v))
+                .collect::<Vec<u8>>(),
+            _ => unreachable!(),
+        };
 
-            writer.write_image_data(&pixels)?;
-        }
+        writer.write_image_data(&pixels)?;
+
+        // force writer to finish writing on drop
+        drop(writer);
 
         Ok(png_buffer)
     }

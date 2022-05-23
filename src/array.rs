@@ -52,7 +52,11 @@ pub fn shift<T: Copy>(
             src_index = row * size.0 + col;
             dest_index = (row + offset.1) * target_size.0 + (col + offset.0);
             buffer[dest_index] = buffer[src_index];
-            buffer[src_index] = fill;
+
+            // backfill if pixel now vacated
+            if dest_index != src_index {
+                buffer[src_index] = fill;
+            }
         }
     }
 }
@@ -76,6 +80,7 @@ pub fn print_2d<T: PartialEq + Ord + std::fmt::Debug>(
             }
         }
     }
+    println!();
 }
 
 #[cfg(test)]
@@ -88,16 +93,6 @@ mod tests {
         set_all(&mut array, value);
         assert!(all_equals(&array, value));
     }
-
-    // fn histogram_is_equal(l: BTreeMap<u8, u64>, r: BTreeMap<u8, u64>) -> bool {
-    //     if l.len() != r.len() {
-    //         return false;
-    //     }
-
-    //     // TODO: all values must be present
-
-    //     return true;
-    // }
 
     #[test]
     fn test_all_equals() {
@@ -162,27 +157,50 @@ mod tests {
         test_set_all_for_type(0u64, 1u64);
     }
 
-    #[test]
-    fn test_shift() {
-        // first 2 pixels are filled based on a shape of 1 col x 2 rows (filled
-        // into front of buffer)
-        #[rustfmt::skip]
-        let mut buffer: [u8; 12] = [
-            1, 2, 0, 0,
-            0, 0, 0, 0,
-            0, 0, 0, 0
-        ];
-        let size: (usize, usize) = (1, 2);
-
-        #[rustfmt::skip]
-        let expected: [u8; 12] = [
-            0, 0, 0, 0,
-            0, 0, 1, 0,
-            0, 0, 2, 0
-        ];
-        let target_size: (usize, usize) = (4, 3);
-        let offset: (usize, usize) = (2, 1);
-
+    #[rstest]
+    #[case([
+        1, 2, 0, 0,
+        0, 0, 0, 0,
+        0, 0, 0, 0
+    ], (1,2), (4,3), (0,0), [
+        1, 0, 0, 0,
+        2, 0, 0, 0,
+        0, 0, 0, 0
+    ])]
+    #[case([
+        1, 2, 0, 0,
+        0, 0, 0, 0,
+        0, 0, 0, 0
+    ], (1,2), (4,3), (1,0), [
+        0, 1, 0, 0,
+        0, 2, 0, 0,
+        0, 0, 0, 0
+    ])]
+    #[case([
+        1, 2, 0, 0,
+        0, 0, 0, 0,
+        0, 0, 0, 0
+    ], (4,2), (4,3), (0,1), [
+        0, 0, 0, 0,
+        1, 2, 0, 0,
+        0, 0, 0, 0
+    ])]
+    #[case([
+        1, 2, 0, 0,
+        0, 0, 0, 0,
+        0, 0, 0, 0
+    ], (1,2), (4,3), (2,1), [
+        0, 0, 0, 0,
+        0, 0, 1, 0,
+        0, 0, 2, 0
+    ])]
+    fn test_shift(
+        #[case] mut buffer: [u8; 12],
+        #[case] size: (usize, usize),
+        #[case] target_size: (usize, usize),
+        #[case] offset: (usize, usize),
+        #[case] expected: [u8; 12],
+    ) {
         shift(&mut buffer, size, target_size, offset, 0);
         assert!(equals(&buffer, &expected));
     }

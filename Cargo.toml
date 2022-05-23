@@ -31,6 +31,9 @@ opt-level = 3
 [profile.dev.package.deflate]
 opt-level = 3
 
+[profile.dev]
+panic = "abort"
+
 [profile.release]
 lto = "fat"
 codegen-units = 1
