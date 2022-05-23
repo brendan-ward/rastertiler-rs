@@ -26,7 +26,10 @@ use crate::tileid::{TileID, TileRange};
 #[clap(author, version, about)]
 struct Cli {
     #[clap(parse(try_from_str=file_exists))]
+    /// Input GeoTIFF filename
     tiff: PathBuf,
+
+    /// Output MBTiles filename
     mbtiles: PathBuf,
 
     /// Minimum zoom level
