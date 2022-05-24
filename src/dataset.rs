@@ -7,7 +7,7 @@ use std::ptr::null_mut;
 use gdal::raster::{GdalType, RasterBand, ResampleAlg};
 use gdal::spatial_ref::{CoordTransform, SpatialRef};
 use gdal::Dataset as GDALDataset;
-use gdal_sys::{GDALAutoCreateWarpedVRT, GDALDatasetH, GDALResampleAlg};
+use gdal_sys::{GDALAutoCreateWarpedVRT, GDALDataType, GDALDatasetH, GDALResampleAlg};
 
 use crate::affine::Affine;
 use crate::array::{all_equals, set_all, shift};
@@ -100,7 +100,7 @@ impl Dataset {
     /// # Returns
     /// Some(bool) if read is successful; value of bool indicates if tile has data
     /// None if there is an error
-    pub fn read_tile<T: Copy + PartialEq + Ord + GdalType + std::fmt::Debug + std::hash::Hash>(
+    pub fn read_tile<T: Copy + PartialEq + Ord + GdalType + std::fmt::Debug>(
         &self,
         band: &RasterBand,
         tile_id: TileID,

@@ -1,16 +1,18 @@
-use hex;
 use std::collections::BTreeMap;
 use std::error::Error;
 
+use hex;
+use num::traits::PrimInt;
+
 #[derive(Debug, Eq, PartialEq)]
-pub struct Color {
-    r: u8,
-    g: u8,
-    b: u8,
+pub struct Color<T: PrimInt> {
+    pub r: T,
+    pub g: T,
+    pub b: T,
 }
 
-impl Color {
-    pub fn from_hex(hex_str: &str) -> Result<Color, Box<dyn Error>> {
+impl<T: PrimInt> Color<T> {
+    pub fn from_hex(hex_str: &str) -> Result<Color<u8>, Box<dyn Error>> {
         if hex_str.len() != 7 {
             return Err("unsupported hex format")?;
         }
@@ -22,6 +24,41 @@ impl Color {
             g: decoded[1],
             b: decoded[2],
         })
+    }
+
+    pub fn rgb8_from_u32(value: u32) -> Color<u8> {
+        Color::<u8> {
+            r: (value >> 16u32) as u8,
+            g: (value >> 8u32) as u8,
+            b: (value & 0xFF) as u8,
+        }
+    }
+
+    pub fn rgb8_from_uint(value: T) -> Color<u8> {
+        Color::<u8> {
+            // value >> 16
+            r: num::cast(value.unsigned_shr(16)).unwrap(),
+            // value >> 8
+            g: num::cast(value.unsigned_shr(8)).unwrap(),
+            // value && 0xFF
+            b: num::cast(value.bitand(num::cast(255).unwrap())).unwrap(),
+        }
+    }
+
+    pub fn to_rgb8(&self) -> Color<u8> {
+        Color::<u8> {
+            r: num::cast(self.r).unwrap(),
+            g: num::cast(self.g).unwrap(),
+            b: num::cast(self.b).unwrap(),
+        }
+    }
+
+    pub fn to_rgb16(&self) -> Color<u16> {
+        Color::<u16> {
+            r: num::cast(self.r).unwrap(),
+            g: num::cast(self.g).unwrap(),
+            b: num::cast(self.b).unwrap(),
+        }
     }
 }
 
@@ -39,12 +76,12 @@ impl Colormap {
         let mut colors: Vec<u8> = Vec::with_capacity(num_colors * 3);
         let mut transparency: Vec<u8> = Vec::with_capacity(num_colors);
         let mut value: u8;
-        let mut color: Color;
+        let mut color: Color<u8>;
         for (index, entry) in colormap.split(",").enumerate() {
             let parts: Vec<&str> = entry.split(":").collect();
             value = parts[0].parse()?;
             values.insert(value, index as u8);
-            color = Color::from_hex(parts[1])?;
+            color = Color::<u8>::from_hex(parts[1])?;
             colors.push(color.r);
             colors.push(color.g);
             colors.push(color.b);
@@ -91,9 +128,9 @@ mod tests {
     use rstest::rstest;
 
     #[rstest]
-    #[case("#FF00FF", Color{r: 255, g: 0, b: 255})]
-    fn test_color_from_hex(#[case] hex_str: &str, #[case] expected: Color) {
-        let actual = Color::from_hex(hex_str).expect("color not parsed correctly");
+    #[case("#FF00FF", Color{r: 255u8, g: 0u8, b: 255u8})]
+    fn test_color_from_hex(#[case] hex_str: &str, #[case] expected: Color<u8>) {
+        let actual = Color::<u8>::from_hex(hex_str).expect("color not parsed correctly");
         assert_eq!(actual, expected);
     }
 }

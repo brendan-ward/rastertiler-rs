@@ -1,4 +1,4 @@
-use crate::color::Colormap;
+use crate::png::color::Colormap;
 use png::{BitDepth, ColorType, Compression, Encoder, FilterType};
 use std::error::Error;
 use std::io::BufWriter;
