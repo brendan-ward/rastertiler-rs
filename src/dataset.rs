@@ -7,7 +7,7 @@ use std::ptr::null_mut;
 use gdal::raster::{GdalType, RasterBand, ResampleAlg};
 use gdal::spatial_ref::{CoordTransform, SpatialRef};
 use gdal::Dataset as GDALDataset;
-use gdal_sys::{GDALAutoCreateWarpedVRT, GDALDataType, GDALDatasetH, GDALResampleAlg};
+use gdal_sys::{GDALAutoCreateWarpedVRT, GDALDatasetH, GDALResampleAlg};
 
 use crate::affine::Affine;
 use crate::array::{all_equals, set_all, shift};

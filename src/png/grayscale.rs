@@ -2,7 +2,7 @@ use png::{BitDepth, ColorType, Compression, Encoder, FilterType};
 use std::error::Error;
 use std::io::BufWriter;
 
-use crate::png::Encode;
+use crate::png::{Encode, PixelValue};
 
 #[derive(Debug)]
 pub struct GrayscaleEncoder {
@@ -21,8 +21,12 @@ impl GrayscaleEncoder {
     }
 }
 
-impl Encode for GrayscaleEncoder {
-    fn encode(&self, buffer: &[u8]) -> Result<Vec<u8>, Box<dyn Error>> {
+impl<T: PixelValue> Encode<T> for GrayscaleEncoder {
+    fn encode(&self, buffer: &[T]) -> Result<Vec<u8>, Box<dyn Error>> {
+        unimplemented!("encode() not implemented for GrayscaleEncoder, use encode_8bit() instead")
+    }
+
+    fn encode_8bit(&self, buffer: &[u8]) -> Result<Vec<u8>, Box<dyn Error>> {
         // TODO: may want to pass in or internally provide png_buffer to reduce allocations
         let mut png_buffer: Vec<u8> = Vec::new();
 

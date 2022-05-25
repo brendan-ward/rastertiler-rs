@@ -1,6 +1,5 @@
 use std::error::Error;
 use std::path::PathBuf;
-use std::sync::Arc;
 
 use clap::{CommandFactory, ErrorKind, Parser};
 use crossbeam::channel;
@@ -18,7 +17,7 @@ mod window;
 
 use crate::dataset::Dataset;
 use crate::mbtiles::MBTiles;
-use crate::png::{Color, ColormapEncoder, Encode, GrayscaleEncoder, RGBEncoder};
+use crate::png::{ColormapEncoder, Encode, GrayscaleEncoder, RGBEncoder, Rgb8};
 use crate::tileid::{TileID, TileRange};
 
 #[derive(Parser, Debug)]
@@ -95,7 +94,6 @@ fn main() {
     let dataset = Dataset::open(&args.tiff).unwrap();
     let band = dataset.band(1).unwrap();
     let dtype = band.band_type();
-    let nodata: f64 = band.no_data_value().unwrap();
     let geo_bounds = dataset.geo_bounds().unwrap();
     let mercator_bounds = dataset.mercator_bounds().unwrap();
 
@@ -107,6 +105,18 @@ fn main() {
             "colormap can only be provided for uint8 data",
         )
         .exit();
+    }
+
+    let allowed_dtype: bool = match dtype {
+        GDALDataType::GDT_Byte => true,
+        GDALDataType::GDT_UInt32 => true,
+        _ => false,
+    };
+
+    if !allowed_dtype {
+        let mut cmd = Cli::command();
+        cmd.error(ErrorKind::ArgumentConflict, "data type is not supported")
+            .exit();
     }
 
     let mut metadata = Vec::<(&str, &str)>::new();
@@ -144,17 +154,6 @@ fn main() {
     metadata.push(("format", "png"));
     metadata.push(("version", "1.0.0"));
 
-    let tilesize = args.tilesize as u32;
-
-    let encoder: Arc<dyn Encode + Send + Sync> = match dtype {
-        GDALDataType::GDT_Byte => match args.colormap {
-            Some(c) => Arc::new(ColormapEncoder::new(tilesize, tilesize, &c).unwrap()),
-            _ => Arc::new(GrayscaleEncoder::new(tilesize, tilesize, nodata as u8)),
-        },
-        GDALDataType::GDT_UInt32 => Arc::new(RGBEncoder::new(tilesize, tilesize, nodata as u32)),
-        _ => panic!("Data type not  supported: {:?}", dtype),
-    };
-
     // close dataset; will be opened in each thread
     drop(dataset);
 
@@ -187,20 +186,21 @@ fn main() {
                 drop(snd);
             });
 
+            let tiff = &args.tiff;
+            let db = &db;
+            let colormap = &args.colormap;
             for _ in 0..args.workers {
                 let rcv = rcv.clone();
-                let tiff = &args.tiff;
-                let db = &db;
-                let encoder = encoder.clone();
+
                 s.spawn(move |_| {
                     match dtype {
                         GDALDataType::GDT_Byte => {
-                            worker_u8(rcv, tiff, db, args.tilesize, &encoder).unwrap();
+                            worker_u8(rcv, tiff, db, args.tilesize, colormap).unwrap();
                         }
                         GDALDataType::GDT_UInt32 => {
-                            worker_u32(rcv, tiff, db, args.tilesize, &encoder).unwrap();
+                            worker_u32(rcv, tiff, db, args.tilesize).unwrap();
                         }
-                        // data types validated above
+                        // supported data types validated above
                         _ => {
                             unreachable!("data type not supported");
                         }
@@ -242,7 +242,7 @@ fn worker_u8(
     tiff_filename: &PathBuf,
     db: &MBTiles,
     tilesize: u16,
-    encoder: &Arc<dyn Encode + Send + Sync>,
+    colormap_str: &Option<String>,
 ) -> Result<(), Box<dyn Error>> {
     let dataset = Dataset::open(tiff_filename)?;
     let vrt = dataset.mercator_vrt()?;
@@ -251,13 +251,33 @@ fn worker_u8(
 
     let conn = db.get_connection()?;
 
+    let width: u32 = tilesize as u32;
+    let height: u32 = width;
+
+    let (has_colormap, encoder): (bool, Box<dyn Encode<u8>>) = match colormap_str {
+        Some(c) => (
+            true,
+            Box::new(ColormapEncoder::<u8>::from_str(width, height, &c, nodata).unwrap()),
+        ),
+        _ => (
+            false,
+            Box::new(GrayscaleEncoder::new(width, height, nodata)),
+        ),
+    };
+
     // create buffers to receive data; these are automatically filled with
     // the appropriate nodata value before reading from the raster
     let mut buffer = vec![0u8; (tilesize as usize * tilesize as usize) as usize];
 
+    let mut png_data: Vec<u8>;
+
     for tile_id in tiles.iter() {
         if vrt.read_tile(&band, tile_id, tilesize, &mut buffer, nodata)? {
-            let png_data = encoder.encode(&buffer)?;
+            if has_colormap {
+                png_data = encoder.encode(&buffer)?;
+            } else {
+                png_data = encoder.encode_8bit(&buffer)?;
+            }
             db.write_tile(&conn, &tile_id, &png_data)?;
         }
     }
@@ -270,7 +290,6 @@ fn worker_u32(
     tiff_filename: &PathBuf,
     db: &MBTiles,
     tilesize: u16,
-    encoder: &Arc<dyn Encode + Send + Sync>,
 ) -> Result<(), Box<dyn Error>> {
     let dataset = Dataset::open(tiff_filename)?;
     let vrt = dataset.mercator_vrt()?;
@@ -279,22 +298,49 @@ fn worker_u32(
 
     let conn = db.get_connection()?;
 
+    let width: u32 = tilesize as u32;
+    let height: u32 = width;
+
+    // get a function pointer for the RGBEncoder that defines specific type of data
+    let rgb_encoder = RGBEncoder::new(width, height, nodata);
+    let encode_rgb = <RGBEncoder as Encode<u32>>::encode_8bit;
+
+    let mut colormap_encoder: ColormapEncoder<u32> =
+        ColormapEncoder::new(width, height, nodata, 256)?;
+
     let buffer_size = (tilesize as usize * tilesize as usize) as usize;
     let mut buffer = vec![nodata; buffer_size];
-    let mut rgb_buffer = vec![0u8; buffer_size * 3];
-    let mut color: Color<u8>;
+    let mut rgb_buffer: Vec<u8> = vec![0u8; buffer_size * 3];
+    let mut color: Rgb8;
+    let mut png_data: Vec<u8>;
+    let mut use_palette: bool;
 
     for tile_id in tiles.iter() {
         if vrt.read_tile(&band, tile_id, tilesize, &mut buffer, nodata)? {
+            colormap_encoder.colormap.clear();
+            use_palette = true;
+
             // convert value buffer to 8-bit RGB buffer, ignoring alpha
+            // also build up palette of unique values
             for (i, &value) in buffer.iter().enumerate() {
-                color = Color::<u8>::rgb8_from_u32(value);
+                color = Rgb8::from_u32(value);
                 rgb_buffer[i * 3] = color.r;
                 rgb_buffer[i * 3 + 1] = color.g;
                 rgb_buffer[i * 3 + 2] = color.b;
+
+                if colormap_encoder.colormap.len() < 256 {
+                    colormap_encoder.colormap.add_color(value, color);
+                } else {
+                    use_palette = false;
+                }
             }
 
-            let png_data = encoder.encode(&rgb_buffer)?;
+            if use_palette {
+                png_data = colormap_encoder.encode(&buffer)?;
+            } else {
+                png_data = encode_rgb(&rgb_encoder, &rgb_buffer)?;
+            }
+
             db.write_tile(&conn, &tile_id, &png_data)?;
         }
     }

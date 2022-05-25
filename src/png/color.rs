@@ -2,110 +2,99 @@ use std::collections::BTreeMap;
 use std::error::Error;
 
 use hex;
-use num::traits::PrimInt;
+
+use crate::png::PixelValue;
 
 #[derive(Debug, Eq, PartialEq)]
-pub struct Color<T: PrimInt> {
-    pub r: T,
-    pub g: T,
-    pub b: T,
+pub struct Rgb8 {
+    pub r: u8,
+    pub g: u8,
+    pub b: u8,
 }
 
-impl<T: PrimInt> Color<T> {
-    pub fn from_hex(hex_str: &str) -> Result<Color<u8>, Box<dyn Error>> {
+impl Rgb8 {
+    pub fn from_hex(hex_str: &str) -> Result<Rgb8, Box<dyn Error>> {
         if hex_str.len() != 7 {
             return Err("unsupported hex format")?;
         }
 
         let decoded = hex::decode(&hex_str[1..])?;
 
-        Ok(Color {
+        Ok(Rgb8 {
             r: decoded[0],
             g: decoded[1],
             b: decoded[2],
         })
     }
 
-    pub fn rgb8_from_u32(value: u32) -> Color<u8> {
-        Color::<u8> {
+    pub fn from_u32(value: u32) -> Rgb8 {
+        Rgb8 {
             r: (value >> 16u32) as u8,
             g: (value >> 8u32) as u8,
             b: (value & 0xFF) as u8,
         }
     }
-
-    pub fn rgb8_from_uint(value: T) -> Color<u8> {
-        Color::<u8> {
-            // value >> 16
-            r: num::cast(value.unsigned_shr(16)).unwrap(),
-            // value >> 8
-            g: num::cast(value.unsigned_shr(8)).unwrap(),
-            // value && 0xFF
-            b: num::cast(value.bitand(num::cast(255).unwrap())).unwrap(),
-        }
-    }
-
-    pub fn to_rgb8(&self) -> Color<u8> {
-        Color::<u8> {
-            r: num::cast(self.r).unwrap(),
-            g: num::cast(self.g).unwrap(),
-            b: num::cast(self.b).unwrap(),
-        }
-    }
-
-    pub fn to_rgb16(&self) -> Color<u16> {
-        Color::<u16> {
-            r: num::cast(self.r).unwrap(),
-            g: num::cast(self.g).unwrap(),
-            b: num::cast(self.b).unwrap(),
-        }
-    }
 }
 
 #[derive(Debug)]
-pub struct Colormap {
-    values: BTreeMap<u8, u8>,
+pub struct ColormapRgb8<T: PixelValue> {
+    values: BTreeMap<T, u8>,
     colors: Vec<u8>,
-    transparency: Vec<u8>,
 }
 
-impl Colormap {
-    pub fn new(colormap: &str) -> Result<Colormap, Box<dyn Error>> {
-        let mut values: BTreeMap<u8, u8> = BTreeMap::new();
-        let num_colors = colormap.matches(",").count() + 2;
-        let mut colors: Vec<u8> = Vec::with_capacity(num_colors * 3);
-        let mut transparency: Vec<u8> = Vec::with_capacity(num_colors);
-        let mut value: u8;
-        let mut color: Color<u8>;
-        for (index, entry) in colormap.split(",").enumerate() {
-            let parts: Vec<&str> = entry.split(":").collect();
-            value = parts[0].parse()?;
-            values.insert(value, index as u8);
-            color = Color::<u8>::from_hex(parts[1])?;
-            colors.push(color.r);
-            colors.push(color.g);
-            colors.push(color.b);
-            transparency.push(255);
-        }
-        // add transparent color at end
-        colors.push(0);
-        colors.push(0);
-        colors.push(0);
-        transparency.push(0);
+impl<T: PixelValue> ColormapRgb8<T> {
+    pub fn new(capacity: usize, nodata: T) -> ColormapRgb8<T> {
+        let mut colormap = ColormapRgb8 {
+            values: BTreeMap::new(),
+            colors: Vec::with_capacity((capacity + 1) * 3),
+        };
 
-        Ok(Colormap {
-            values,
-            colors,
-            transparency,
-        })
+        // NODATA is always associated with first index
+        colormap.values.insert(nodata, 0u8);
+        colormap.colors.push(0u8);
+        colormap.colors.push(0u8);
+        colormap.colors.push(0u8);
+
+        colormap
     }
 
-    /// Return index value for input value, returning index beyond length of
-    /// indexes if not found (corresponds to transparent)
-    pub fn get_index(&self, value: u8) -> u8 {
+    pub fn clear(&mut self) {
+        self.values.clear();
+        self.colors.clear();
+    }
+
+    pub fn add_color(&mut self, value: T, color: Rgb8) {
+        // only add unique entries
+        if !self.values.contains_key(&value) {
+            self.values.insert(value, self.values.len() as u8);
+            self.colors.push(color.r);
+            self.colors.push(color.g);
+            self.colors.push(color.b);
+        }
+    }
+
+    pub fn parse(colormap_str: &str, nodata: u8) -> Result<ColormapRgb8<u8>, Box<dyn Error>> {
+        let num_colors = colormap_str.matches(",").count() + 1;
+        let mut colormap = ColormapRgb8::<u8>::new(num_colors, nodata);
+
+        let mut value: u8;
+        let mut color: Rgb8;
+        for entry in colormap_str.split(",") {
+            let parts: Vec<&str> = entry.split(":").collect();
+            value = parts[0].parse()?;
+            color = Rgb8::from_hex(parts[1])?;
+            colormap.add_color(value, color);
+        }
+
+        Ok(colormap)
+    }
+
+    /// Return index value for input value, returning index 0
+    /// if not found (corresponds to transparent)
+    pub fn get_index(&self, value: T) -> u8 {
         match self.values.get(&value) {
             Some(v) => *v,
-            _ => self.values.len() as u8,
+            _ => 0u8,
         }
     }
 
@@ -113,8 +102,9 @@ impl Colormap {
         &self.colors
     }
 
-    pub fn get_transparency(&self) -> &Vec<u8> {
-        &self.transparency
+    pub fn get_transparency(&self) -> &[u8] {
+        // transparency is always stored in lowest index
+        &[0u8][..]
     }
 
     pub fn len(&self) -> usize {
@@ -128,9 +118,9 @@ mod tests {
     use rstest::rstest;
 
     #[rstest]
-    #[case("#FF00FF", Color{r: 255u8, g: 0u8, b: 255u8})]
-    fn test_color_from_hex(#[case] hex_str: &str, #[case] expected: Color<u8>) {
-        let actual = Color::<u8>::from_hex(hex_str).expect("color not parsed correctly");
+    #[case("#FF00FF", Rgb8{r: 255u8, g: 0u8, b: 255u8})]
+    fn test_color_from_hex(#[case] hex_str: &str, #[case] expected: Rgb8) {
+        let actual = Rgb8::from_hex(hex_str).expect("color not parsed correctly");
         assert_eq!(actual, expected);
     }
 }

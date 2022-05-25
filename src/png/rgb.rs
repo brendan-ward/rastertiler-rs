@@ -2,14 +2,14 @@ use png::{BitDepth, ColorType, Compression, Encoder, FilterType};
 use std::error::Error;
 use std::io::BufWriter;
 
-use crate::png::color::Color;
-use crate::png::Encode;
+use crate::png::color::Rgb8;
+use crate::png::{Encode, PixelValue};
 
 #[derive(Debug)]
 pub struct RGBEncoder {
     width: u32,
     height: u32,
-    nodata_color: Color<u8>,
+    nodata_color: Rgb8,
 }
 
 impl RGBEncoder {
@@ -17,13 +17,17 @@ impl RGBEncoder {
         RGBEncoder {
             width,
             height,
-            nodata_color: Color::<u8>::rgb8_from_u32(nodata),
+            nodata_color: Rgb8::from_u32(nodata),
         }
     }
 }
 
-impl Encode for RGBEncoder {
-    fn encode(&self, buffer: &[u8]) -> Result<Vec<u8>, Box<dyn Error>> {
+impl<T: PixelValue> Encode<T> for RGBEncoder {
+    fn encode(&self, buffer: &[T]) -> Result<Vec<u8>, Box<dyn Error>> {
+        unimplemented!("encode() not implemented for RGBEncoder, use encode_8bit() instead")
+    }
+
+    fn encode_8bit(&self, buffer: &[u8]) -> Result<Vec<u8>, Box<dyn Error>> {
         let mut png_buffer: Vec<u8> = Vec::new();
 
         let mut encoder = Encoder::new(
