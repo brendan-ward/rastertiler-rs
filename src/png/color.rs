@@ -40,6 +40,7 @@ impl Rgb8 {
 pub struct ColormapRgb8<T: PixelValue> {
     values: BTreeMap<T, u8>,
     colors: Vec<u8>,
+    nodata: T,
 }
 
 impl<T: PixelValue> ColormapRgb8<T> {
@@ -47,6 +48,7 @@ impl<T: PixelValue> ColormapRgb8<T> {
         let mut colormap = ColormapRgb8 {
             values: BTreeMap::new(),
             colors: Vec::with_capacity((capacity + 1) * 3),
+            nodata,
         };
 
         // NODATA is always associated with first index
@@ -61,6 +63,12 @@ impl<T: PixelValue> ColormapRgb8<T> {
     pub fn clear(&mut self) {
         self.values.clear();
         self.colors.clear();
+
+        // add back in NODATA
+        self.values.insert(self.nodata, 0u8);
+        self.colors.push(0u8);
+        self.colors.push(0u8);
+        self.colors.push(0u8);
     }
 
     pub fn add_color(&mut self, value: T, color: Rgb8) {

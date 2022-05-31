@@ -131,9 +131,7 @@ impl<T: PixelValue> Encode<T> for ColormapEncoder<T> {
         };
 
         writer.write_image_data(&pixels)?;
-
-        // force writer to finish writing on drop
-        drop(writer);
+        writer.finish()?;
 
         Ok(png_buffer)
     }

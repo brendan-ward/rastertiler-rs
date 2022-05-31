@@ -54,9 +54,7 @@ impl<T: PixelValue> Encode<T> for RGBEncoder {
 
         let mut writer = encoder.write_header()?;
         writer.write_image_data(buffer)?;
-
-        // force writer to finish writing on drop
-        drop(writer);
+        writer.finish()?;
 
         Ok(png_buffer)
     }
