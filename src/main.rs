@@ -1,9 +1,11 @@
 use std::error::Error;
+use std::fs;
 use std::path::PathBuf;
 
 use clap::{CommandFactory, ErrorKind, Parser};
 use crossbeam::channel;
 use gdal::raster::GDALDataType;
+use gdal::spatial_ref::SpatialRef;
 use indicatif::{ProgressBar, ProgressStyle};
 
 mod affine;
@@ -15,7 +17,8 @@ mod png;
 mod tileid;
 mod window;
 
-use crate::dataset::Dataset;
+use crate::affine::Affine;
+use crate::dataset::{write_raster, Dataset};
 use crate::mbtiles::MBTiles;
 use crate::png::{ColormapEncoder, Encode, GrayscaleEncoder, RGBEncoder, Rgb8};
 use crate::tileid::{TileID, TileRange};
@@ -183,6 +186,11 @@ fn main() {
 
                     bar.finish();
                 }
+
+                // // FIXME: send specific tiles
+                // snd.send(TileID::new(10, 270, 423)).unwrap();
+                // snd.send(TileID::new(11, 541, 847)).unwrap();
+
                 drop(snd);
             });
 
@@ -317,6 +325,23 @@ fn worker_u32(
 
     for tile_id in tiles.iter() {
         if vrt.read_tile(&band, tile_id, tilesize, &mut buffer, nodata)? {
+            // // DEBUG: write raw data to TIFF for inspection
+            // let tile_bounds = tile_id.mercator_bounds();
+            // let xres = (tile_bounds.xmax - tile_bounds.xmin) as f64 / tilesize as f64;
+            // let yres = (tile_bounds.ymax - tile_bounds.ymin) as f64 / tilesize as f64;
+            // let transform = Affine::new(xres, 0., tile_bounds.xmin, 0., -yres, tile_bounds.ymax);
+
+            // write_raster(
+            //     format!("/tmp/test_{}_{}_{}.tif", tile_id.zoom, tile_id.x, tile_id.y),
+            //     tilesize as usize,
+            //     tilesize as usize,
+            //     &transform,
+            //     &SpatialRef::from_epsg(3857)?,
+            //     buffer.to_vec(),
+            //     nodata as f64,
+            // )
+            // .unwrap();
+
             colormap_encoder.colormap.clear();
             use_palette = true;
 
@@ -342,6 +367,13 @@ fn worker_u32(
             }
 
             db.write_tile(&conn, &tile_id, &png_data)?;
+
+            // DEBUG: write rendered PNG to file
+            // fs::write(
+            //     format!("/tmp/test_{}_{}_{}.png", tile_id.zoom, tile_id.x, tile_id.y),
+            //     png_data,
+            // )
+            // .unwrap();
         }
     }
 

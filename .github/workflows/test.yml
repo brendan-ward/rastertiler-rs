@@ -39,6 +39,9 @@ jobs:
         run: |
           cargo --version --verbose
 
+      - name: Cache dependencies
+        uses: Swatinem/rust-cache@v1
+
       - name: Lint
         run: |
           cargo fmt -- --check

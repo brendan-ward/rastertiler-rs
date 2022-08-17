@@ -245,10 +245,11 @@ checksum = "8f5f3913fa0bfe7ee1fd8248b6b9f42a5af4b9d65ec2dd2c3c26132b950ecfc2"
 [[package]]
 name = "gdal"
 version = "0.12.0"
+source = "git+https://github.com/georust/gdal?rev=d640dd734e30de997ace613b650181b7c3187b53#d640dd734e30de997ace613b650181b7c3187b53"
 dependencies = [
  "bitflags",
  "chrono",
- "gdal-sys 0.6.0",
+ "gdal-sys",
  "geo-types",
  "libc",
  "once_cell",
@@ -259,17 +260,7 @@ dependencies = [
 [[package]]
 name = "gdal-sys"
 version = "0.6.0"
-dependencies = [
- "libc",
- "pkg-config",
- "semver",
-]
-
-[[package]]
-name = "gdal-sys"
-version = "0.6.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8331ad3efd6032c03f2462785468edceeb79371b43757ff29809f2d160575f0f"
+source = "git+https://github.com/georust/gdal?rev=d640dd734e30de997ace613b650181b7c3187b53#d640dd734e30de997ace613b650181b7c3187b53"
 dependencies = [
  "libc",
  "pkg-config",
@@ -442,9 +433,9 @@ dependencies = [
 
 [[package]]
 name = "num-integer"
-version = "0.1.44"
+version = "0.1.45"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d2cc698a63b549a70bc047073d2949cce27cd1c7b0a4a862d08a8031bc2801db"
+checksum = "225d3389fb3509a24c93f5c29eb6bde2586b98d9f016636dff58d7c6f7569cd9"
 dependencies = [
  "autocfg",
  "num-traits",
@@ -452,9 +443,9 @@ dependencies = [
 
 [[package]]
 name = "num-traits"
-version = "0.2.14"
+version = "0.2.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9a64b1ec5cda2586e284722486d802acf1f7dbdc623e2bfc57e65ca1cd099290"
+checksum = "578ede34cf02f8924ab9447f50c28075b4d3e5b269972345e7e0372b38c6cdcd"
 dependencies = [
  "autocfg",
 ]
@@ -628,7 +619,7 @@ dependencies = [
  "clap",
  "crossbeam",
  "gdal",
- "gdal-sys 0.6.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "gdal-sys",
  "hex",
  "indicatif",
  "itertools",
@@ -808,18 +799,18 @@ checksum = "b1141d4d61095b28419e22cb0bbf02755f5e54e0526f97f1e3d1d160e60885fb"
 
 [[package]]
 name = "thiserror"
-version = "1.0.30"
+version = "1.0.31"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "854babe52e4df1653706b98fcfc05843010039b406875930a70e4d9644e5c417"
+checksum = "bd829fe32373d27f76265620b5309d0340cb8550f523c1dda251d6298069069a"
 dependencies = [
  "thiserror-impl",
 ]
 
 [[package]]
 name = "thiserror-impl"
-version = "1.0.30"
+version = "1.0.31"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "aa32fd3f627f367fe16f893e2597ae3c05020f8bba2666a4e6ea73d377e5714b"
+checksum = "0396bc89e626244658bef819e22d0cc459e795a5ebe878e6ec336d1674a8d79a"
 dependencies = [
  "proc-macro2",
  "quote",

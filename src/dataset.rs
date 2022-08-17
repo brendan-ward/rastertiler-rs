@@ -2,12 +2,16 @@ use libc::c_double;
 use std::error::Error;
 use std::ffi::CString;
 use std::path::PathBuf;
-use std::ptr::null_mut;
+use std::ptr::null;
 
-use gdal::raster::{GdalType, RasterBand, ResampleAlg};
+use gdal::cpl::CslStringList;
+use gdal::raster::{Buffer, GdalType, RasterBand, RasterCreationOption, ResampleAlg};
 use gdal::spatial_ref::{CoordTransform, SpatialRef};
-use gdal::Dataset as GDALDataset;
-use gdal_sys::{GDALAutoCreateWarpedVRT, GDALDatasetH, GDALResampleAlg};
+use gdal::{Dataset as GDALDataset, Driver};
+use gdal_sys::{
+    GDALAutoCreateWarpedVRT, GDALCreateWarpOptions, GDALDatasetH, GDALDestroyWarpOptions,
+    GDALResampleAlg,
+};
 
 use crate::affine::Affine;
 use crate::array::{all_equals, set_all, shift};
@@ -67,7 +71,17 @@ impl Dataset {
         let src_wkt = CString::new(self.ds.spatial_ref()?.to_wkt()?)?;
         let target_wkt = CString::new(sp_ref.to_wkt()?)?;
 
-        // TODO: options
+        let mut str_opts = CslStringList::new();
+        str_opts.set_name_value("INIT_DEST", "NO_DATA")?;
+        str_opts.set_name_value("NUM_THREADS", "1")?;
+
+        let mut options = unsafe { GDALCreateWarpOptions() };
+        // use 2GB memory for warping (doesn't seem to help)
+        unsafe { (*options).dfWarpMemoryLimit = 2048. * 1024. * 1024. };
+        unsafe {
+            (*options).papszWarpOptions = str_opts.as_ptr();
+        }
+
         let vrt: GDALDatasetH = unsafe {
             GDALAutoCreateWarpedVRT(
                 self.ds.c_dataset(),
@@ -75,7 +89,7 @@ impl Dataset {
                 target_wkt.as_ptr(),
                 GDALResampleAlg::GRA_NearestNeighbour,
                 0. as c_double,
-                null_mut(),
+                options,
             )
         };
 
@@ -142,20 +156,6 @@ impl Dataset {
         let read_width = ((x_stop - x_offset) + 0.5).floor() as usize;
         let read_height = ((y_stop - y_offset) + 0.5).floor() as usize;
 
-        // println!("box: ({},{},{},{})", left, right, bottom, top);
-        // println!(
-        //     "Debug tile={:?}: window=({},{}), read_dims=({},{}), data_dims=({},{}), data_offset=({},{})",
-        //     tile_id,
-        //     x_offset,
-        //     y_offset,
-        //     read_width,
-        //     read_height,
-        //     width,
-        //     height,
-        //     left,
-        //     top
-        // );
-
         if read_width <= 0 || read_height <= 0 {
             // to data available within extent of dataset
             return Ok(false);
@@ -188,6 +188,63 @@ impl Dataset {
             );
         }
 
+        // DEBUG: write tile to TIFF
+
         Ok(true)
     }
+}
+
+pub fn write_raster<T: GdalType + Copy>(
+    // path: &PathBuf,
+    path: String,
+    width: usize,
+    height: usize,
+    transform: &Affine,
+    spatialref: &SpatialRef,
+    data: Vec<T>,
+    nodata: f64,
+) -> Result<(), Box<dyn Error>> {
+    let driver = Driver::get_by_name("GTiff").unwrap();
+    let options = [
+        RasterCreationOption {
+            key: "TILED",
+            value: "YES",
+        },
+        RasterCreationOption {
+            key: "BLOCKXSIZE",
+            value: "256",
+        },
+        RasterCreationOption {
+            key: "BLOCKYSIZE",
+            value: "256",
+        },
+        RasterCreationOption {
+            key: "COMPRESS",
+            value: "LZW",
+        },
+        RasterCreationOption {
+            key: "INTERLEAVE",
+            value: "BAND",
+        },
+    ];
+    let mut dataset = driver
+        .create_with_band_type_with_options::<T, _>(
+            path,
+            width as isize,
+            height as isize,
+            1,
+            &options,
+        )
+        .unwrap();
+    dataset.set_geo_transform(&transform.to_gdal())?;
+    dataset.set_spatial_ref(spatialref)?;
+
+    let mut band = dataset.rasterband(1)?;
+    band.set_no_data_value(nodata)?;
+
+    let raster = Buffer::new((width, height), data);
+
+    band.write((0, 0), (width, height), &raster)?;
+
+    return Ok(());
 }
