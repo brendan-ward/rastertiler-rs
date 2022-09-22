@@ -2,16 +2,12 @@ use libc::c_double;
 use std::error::Error;
 use std::ffi::CString;
 use std::path::PathBuf;
-use std::ptr::null;
 
 use gdal::cpl::CslStringList;
 use gdal::raster::{Buffer, GdalType, RasterBand, RasterCreationOption, ResampleAlg};
 use gdal::spatial_ref::{CoordTransform, SpatialRef};
-use gdal::{Dataset as GDALDataset, Driver};
-use gdal_sys::{
-    GDALAutoCreateWarpedVRT, GDALCreateWarpOptions, GDALDatasetH, GDALDestroyWarpOptions,
-    GDALResampleAlg,
-};
+use gdal::{Dataset as GDALDataset, DatasetOptions, Driver};
+use gdal_sys::{GDALAutoCreateWarpedVRT, GDALCreateWarpOptions, GDALDatasetH, GDALResampleAlg};
 
 use crate::affine::Affine;
 use crate::array::{all_equals, set_all, shift};
@@ -24,9 +20,15 @@ pub struct Dataset {
 }
 
 impl Dataset {
-    pub fn open(path: &PathBuf) -> Result<Dataset, Box<dyn Error>> {
+    pub fn open(path: &PathBuf, disable_overviews: bool) -> Result<Dataset, Box<dyn Error>> {
+        let mut options = DatasetOptions::default();
+
+        if disable_overviews {
+            options.open_options = Some(&["OVERVIEW_LEVEL=NONE"]);
+        }
+
         Ok(Dataset {
-            ds: GDALDataset::open(path)?,
+            ds: GDALDataset::open_ex(path, options)?,
         })
     }
 
@@ -188,14 +190,11 @@ impl Dataset {
             );
         }
 
-        // DEBUG: write tile to TIFF
-
         Ok(true)
     }
 }
 
 pub fn write_raster<T: GdalType + Copy>(
-    // path: &PathBuf,
     path: String,
     width: usize,
     height: usize,

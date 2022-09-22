@@ -65,6 +65,11 @@ struct Cli {
     /// can only be provided for uint8 data
     #[clap(short = 'c', long)]
     colormap: Option<String>,
+
+    /// Disable use of overviews in source GeoTIFF. This will yield more precise
+    /// results at the expense of slower performance
+    #[clap(long, action)]
+    disable_overviews: bool,
 }
 
 fn main() {
@@ -94,7 +99,7 @@ fn main() {
         args.mbtiles.file_stem().unwrap().to_str().unwrap(),
     ));
 
-    let dataset = Dataset::open(&args.tiff).unwrap();
+    let dataset = Dataset::open(&args.tiff, false).unwrap();
     let band = dataset.band(1).unwrap();
     let dtype = band.band_type();
     let geo_bounds = dataset.geo_bounds().unwrap();
@@ -187,10 +192,6 @@ fn main() {
                     bar.finish();
                 }
 
-                // // FIXME: send specific tiles
-                // snd.send(TileID::new(10, 270, 423)).unwrap();
-                // snd.send(TileID::new(11, 541, 847)).unwrap();
-
                 drop(snd);
             });
 
@@ -203,10 +204,19 @@ fn main() {
                 s.spawn(move |_| {
                     match dtype {
                         GDALDataType::GDT_Byte => {
-                            worker_u8(rcv, tiff, db, args.tilesize, colormap).unwrap();
+                            worker_u8(
+                                rcv,
+                                tiff,
+                                db,
+                                args.tilesize,
+                                colormap,
+                                args.disable_overviews,
+                            )
+                            .unwrap();
                         }
                         GDALDataType::GDT_UInt32 => {
-                            worker_u32(rcv, tiff, db, args.tilesize).unwrap();
+                            worker_u32(rcv, tiff, db, args.tilesize, args.disable_overviews)
+                                .unwrap();
                         }
                         // supported data types validated above
                         _ => {
@@ -251,8 +261,9 @@ fn worker_u8(
     db: &MBTiles,
     tilesize: u16,
     colormap_str: &Option<String>,
+    disable_overviews: bool,
 ) -> Result<(), Box<dyn Error>> {
-    let dataset = Dataset::open(tiff_filename)?;
+    let dataset = Dataset::open(tiff_filename, disable_overviews)?;
     let vrt = dataset.mercator_vrt()?;
     let band = vrt.band(1)?;
     let nodata = band.no_data_value().unwrap() as u8;
@@ -298,8 +309,9 @@ fn worker_u32(
     tiff_filename: &PathBuf,
     db: &MBTiles,
     tilesize: u16,
+    disable_overviews: bool,
 ) -> Result<(), Box<dyn Error>> {
-    let dataset = Dataset::open(tiff_filename)?;
+    let dataset = Dataset::open(tiff_filename, disable_overviews)?;
     let vrt = dataset.mercator_vrt()?;
     let band = vrt.band(1)?;
     let nodata = band.no_data_value().unwrap() as u32;

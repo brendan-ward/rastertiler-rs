@@ -7,13 +7,10 @@ edition = "2021"
 license = "MIT OR Apache-2.0"
 
 [dependencies]
-clap = { version = "3.1.18", features = ["derive"] }
+clap = { version = "3.2.22", features = ["derive"] }
 crossbeam = "0.8"
-# gdal = "0.12"
-# gdal-sys = "0.6"
-# gdal = {path = "../georust_gdal"}
-gdal = { git = "https://github.com/georust/gdal", rev = "d640dd734e30de997ace613b650181b7c3187b53" }
-gdal-sys = { git = "https://github.com/georust/gdal", rev = "d640dd734e30de997ace613b650181b7c3187b53" }
+gdal = "0.13"
+gdal-sys = "0.7"
 hex = "0.4"
 png = "0.17"
 indicatif = "0.16"
