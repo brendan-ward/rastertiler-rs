@@ -1,9 +1,11 @@
 use std::error::Error;
+use std::fs;
 use std::path::PathBuf;
 
 use clap::{CommandFactory, ErrorKind, Parser};
 use crossbeam::channel;
 use gdal::raster::GDALDataType;
+use gdal::spatial_ref::SpatialRef;
 use indicatif::{ProgressBar, ProgressStyle};
 
 mod affine;
@@ -15,7 +17,8 @@ mod png;
 mod tileid;
 mod window;
 
-use crate::dataset::Dataset;
+use crate::affine::Affine;
+use crate::dataset::{write_raster, Dataset};
 use crate::mbtiles::MBTiles;
 use crate::png::{ColormapEncoder, Encode, GrayscaleEncoder, RGBEncoder, Rgb8};
 use crate::tileid::{TileID, TileRange};
@@ -62,6 +65,11 @@ struct Cli {
     /// can only be provided for uint8 data
     #[clap(short = 'c', long)]
     colormap: Option<String>,
+
+    /// Disable use of overviews in source GeoTIFF. This will yield more precise
+    /// results at the expense of slower performance
+    #[clap(long, action)]
+    disable_overviews: bool,
 }
 
 fn main() {
@@ -91,7 +99,7 @@ fn main() {
         args.mbtiles.file_stem().unwrap().to_str().unwrap(),
     ));
 
-    let dataset = Dataset::open(&args.tiff).unwrap();
+    let dataset = Dataset::open(&args.tiff, false).unwrap();
     let band = dataset.band(1).unwrap();
     let dtype = band.band_type();
     let geo_bounds = dataset.geo_bounds().unwrap();
@@ -183,6 +191,7 @@ fn main() {
 
                     bar.finish();
                 }
+
                 drop(snd);
             });
 
@@ -195,10 +204,19 @@ fn main() {
                 s.spawn(move |_| {
                     match dtype {
                         GDALDataType::GDT_Byte => {
-                            worker_u8(rcv, tiff, db, args.tilesize, colormap).unwrap();
+                            worker_u8(
+                                rcv,
+                                tiff,
+                                db,
+                                args.tilesize,
+                                colormap,
+                                args.disable_overviews,
+                            )
+                            .unwrap();
                         }
                         GDALDataType::GDT_UInt32 => {
-                            worker_u32(rcv, tiff, db, args.tilesize).unwrap();
+                            worker_u32(rcv, tiff, db, args.tilesize, args.disable_overviews)
+                                .unwrap();
                         }
                         // supported data types validated above
                         _ => {
@@ -243,8 +261,9 @@ fn worker_u8(
     db: &MBTiles,
     tilesize: u16,
     colormap_str: &Option<String>,
+    disable_overviews: bool,
 ) -> Result<(), Box<dyn Error>> {
-    let dataset = Dataset::open(tiff_filename)?;
+    let dataset = Dataset::open(tiff_filename, disable_overviews)?;
     let vrt = dataset.mercator_vrt()?;
     let band = vrt.band(1)?;
     let nodata = band.no_data_value().unwrap() as u8;
@@ -290,8 +309,9 @@ fn worker_u32(
     tiff_filename: &PathBuf,
     db: &MBTiles,
     tilesize: u16,
+    disable_overviews: bool,
 ) -> Result<(), Box<dyn Error>> {
-    let dataset = Dataset::open(tiff_filename)?;
+    let dataset = Dataset::open(tiff_filename, disable_overviews)?;
     let vrt = dataset.mercator_vrt()?;
     let band = vrt.band(1)?;
     let nodata = band.no_data_value().unwrap() as u32;
@@ -317,6 +337,23 @@ fn worker_u32(
 
     for tile_id in tiles.iter() {
         if vrt.read_tile(&band, tile_id, tilesize, &mut buffer, nodata)? {
+            // // DEBUG: write raw data to TIFF for inspection
+            // let tile_bounds = tile_id.mercator_bounds();
+            // let xres = (tile_bounds.xmax - tile_bounds.xmin) as f64 / tilesize as f64;
+            // let yres = (tile_bounds.ymax - tile_bounds.ymin) as f64 / tilesize as f64;
+            // let transform = Affine::new(xres, 0., tile_bounds.xmin, 0., -yres, tile_bounds.ymax);
+
+            // write_raster(
+            //     format!("/tmp/test_{}_{}_{}.tif", tile_id.zoom, tile_id.x, tile_id.y),
+            //     tilesize as usize,
+            //     tilesize as usize,
+            //     &transform,
+            //     &SpatialRef::from_epsg(3857)?,
+            //     buffer.to_vec(),
+            //     nodata as f64,
+            // )
+            // .unwrap();
+
             colormap_encoder.colormap.clear();
             use_palette = true;
 
@@ -342,6 +379,13 @@ fn worker_u32(
             }
 
             db.write_tile(&conn, &tile_id, &png_data)?;
+
+            // DEBUG: write rendered PNG to file
+            // fs::write(
+            //     format!("/tmp/test_{}_{}_{}.png", tile_id.zoom, tile_id.x, tile_id.y),
+            //     png_data,
+            // )
+            // .unwrap();
         }
     }
 

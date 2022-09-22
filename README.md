@@ -39,8 +39,11 @@ ARGS:
 OPTIONS:
     -a, --attribution <ATTRIBUTION>    Minimum zoom level
     -c, --colormap <COLORMAP>          Colormap as comma-delmited value:hex color pairs, e.g.,
-                                       "<value>:<hex>,<value:hex>"
+                                       "<value>:<hex>,<value:hex>" can only be provided for uint8
+                                       data
     -d, --description <DESCRIPTION>    Tileset description
+        --disable-overviews            Disable use of overviews in source GeoTIFF. This will yield
+                                       more precise results at the expense of slower performance
     -h, --help                         Print help information
     -n, --name <NAME>                  Tileset name
     -s, --tilesize <TILESIZE>          Tile size in pixels per side [default: 512]
@@ -77,10 +80,13 @@ hold all values of the colormap plus a transparency value:
 
 ## Credits
 
-This started as a Rust port of [rastertiler](https://github.com/brendan-ward/rastertiler) built in Go, specifically to avoid the performance penalty of CGO bindings to GDAL
-and more flexible PNG encoding.
+This started as a Rust port of
+[rastertiler](https://github.com/brendan-ward/rastertiler) built in Go,
+specifically to avoid the performance penalty of CGO bindings to GDAL and more
+flexible PNG encoding.
 
-See also [raster-tilecutter](https://github.com/brendan-ward/raster-tilecutter) which does much the same thing, in Python, using `rasterio`.
+See also [raster-tilecutter](https://github.com/brendan-ward/raster-tilecutter)
+which does much the same thing, in Python, using `rasterio`.
 
 This project was developed with the support of the
 [U.S. Fish and Wildlife Service](https://www.fws.gov/)
