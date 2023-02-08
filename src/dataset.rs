@@ -1,3 +1,5 @@
+#![allow(unused)]
+
 use libc::c_double;
 use std::error::Error;
 use std::ffi::CString;
@@ -6,7 +8,7 @@ use std::path::PathBuf;
 use gdal::cpl::CslStringList;
 use gdal::raster::{Buffer, GdalType, RasterBand, RasterCreationOption, ResampleAlg};
 use gdal::spatial_ref::{CoordTransform, SpatialRef};
-use gdal::{Dataset as GDALDataset, DatasetOptions, Driver};
+use gdal::{Dataset as GDALDataset, DatasetOptions, DriverManager};
 use gdal_sys::{GDALAutoCreateWarpedVRT, GDALCreateWarpOptions, GDALDatasetH, GDALResampleAlg};
 
 use crate::affine::Affine;
@@ -203,7 +205,7 @@ pub fn write_raster<T: GdalType + Copy>(
     data: Vec<T>,
     nodata: f64,
 ) -> Result<(), Box<dyn Error>> {
-    let driver = Driver::get_by_name("GTiff").unwrap();
+    let driver = DriverManager::get_driver_by_name("GTiff").unwrap();
     let options = [
         RasterCreationOption {
             key: "TILED",
@@ -239,7 +241,7 @@ pub fn write_raster<T: GdalType + Copy>(
     dataset.set_spatial_ref(spatialref)?;
 
     let mut band = dataset.rasterband(1)?;
-    band.set_no_data_value(nodata)?;
+    band.set_no_data_value(Some(nodata))?;
 
     let raster = Buffer::new((width, height), data);
 

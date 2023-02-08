@@ -9,25 +9,26 @@ license = "MIT OR Apache-2.0"
 [dependencies]
 clap = { version = "3.2.22", features = ["derive"] }
 crossbeam = "0.8"
-gdal = "0.13"
-gdal-sys = "0.7"
+# gdal = "0.14"
+# gdal-sys = "0.8"
+# use latest commit pending v 0.15 with GDAL 3.6
+gdal = { git = "https://github.com/georust/gdal.git", rev = "bd8f877" }
+gdal-sys = { git = "https://github.com/georust/gdal.git", rev = "bd8f877" }
 hex = "0.4"
 png = "0.17"
-indicatif = "0.16"
+indicatif = "0.17"
 itertools = "0.10"
 libc = "0.2"
-r2d2 = "0.8.9"
-r2d2_sqlite = "0.20"
-rusqlite = "0.27"
+r2d2 = "0.8"
+r2d2_sqlite = "0.21"
+rusqlite = "0.28"
 rust-crypto = "0.2"
 seahash = "4.1"
 
 [dev-dependencies]
-rstest = "0.12"
+rstest = "0.16"
 
 [profile.dev.package.png]
-opt-level = 3
-[profile.dev.package.deflate]
 opt-level = 3
 
 [profile.dev]

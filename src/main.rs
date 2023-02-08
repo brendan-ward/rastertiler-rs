@@ -1,11 +1,11 @@
 use std::error::Error;
-use std::fs;
+// use std::fs;
 use std::path::PathBuf;
 
 use clap::{CommandFactory, ErrorKind, Parser};
 use crossbeam::channel;
-use gdal::raster::GDALDataType;
-use gdal::spatial_ref::SpatialRef;
+// use gdal::spatial_ref::SpatialRef;
+use gdal::raster::GdalDataType;
 use indicatif::{ProgressBar, ProgressStyle};
 
 mod affine;
@@ -17,8 +17,9 @@ mod png;
 mod tileid;
 mod window;
 
-use crate::affine::Affine;
-use crate::dataset::{write_raster, Dataset};
+// use crate::affine::Affine;
+// use crate::dataset::{write_raster, Dataset};
+use crate::dataset::Dataset;
 use crate::mbtiles::MBTiles;
 use crate::png::{ColormapEncoder, Encode, GrayscaleEncoder, RGBEncoder, Rgb8};
 use crate::tileid::{TileID, TileRange};
@@ -106,7 +107,7 @@ fn main() {
     let mercator_bounds = dataset.mercator_bounds().unwrap();
 
     // colormap is only allowed for u8 data
-    if args.colormap.is_some() && dtype != GDALDataType::GDT_Byte {
+    if args.colormap.is_some() && dtype != GdalDataType::UInt8 {
         let mut cmd = Cli::command();
         cmd.error(
             ErrorKind::ArgumentConflict,
@@ -116,8 +117,8 @@ fn main() {
     }
 
     let allowed_dtype: bool = match dtype {
-        GDALDataType::GDT_Byte => true,
-        GDALDataType::GDT_UInt32 => true,
+        GdalDataType::UInt8 => true,
+        GdalDataType::UInt32 => true,
         _ => false,
     };
 
@@ -181,7 +182,7 @@ fn main() {
                     let bar = ProgressBar::new(tiles.count() as u64)
                         .with_style(ProgressStyle::default_bar().template(
                             "{prefix:<8} {bar:50} {pos}/{len} {msg} [elapsed: {elapsed_precise}]]",
-                        ))
+                        ).unwrap())
                         .with_prefix(format!("zoom: {}", zoom));
 
                     for tile_id in tiles.iter() {
@@ -203,7 +204,7 @@ fn main() {
 
                 s.spawn(move |_| {
                     match dtype {
-                        GDALDataType::GDT_Byte => {
+                        GdalDataType::UInt8 => {
                             worker_u8(
                                 rcv,
                                 tiff,
@@ -214,7 +215,7 @@ fn main() {
                             )
                             .unwrap();
                         }
-                        GDALDataType::GDT_UInt32 => {
+                        GdalDataType::UInt32 => {
                             worker_u32(rcv, tiff, db, args.tilesize, args.disable_overviews)
                                 .unwrap();
                         }

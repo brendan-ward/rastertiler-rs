@@ -87,7 +87,7 @@ impl<T: PixelValue> ColormapEncoder<T> {
 }
 
 impl<T: PixelValue> Encode<T> for ColormapEncoder<T> {
-    fn encode_8bit(&self, buffer: &[u8]) -> Result<Vec<u8>, Box<dyn Error>> {
+    fn encode_8bit(&self, _buffer: &[u8]) -> Result<Vec<u8>, Box<dyn Error>> {
         // self.encode(buffer.into())
         unimplemented!("encode_8bit() not implemented for ColormapEncoder, use encode() instead")
     }

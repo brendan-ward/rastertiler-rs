@@ -1,3 +1,5 @@
+#![allow(unused)]
+
 use std::collections::BTreeMap;
 use std::hash::Hash;
 

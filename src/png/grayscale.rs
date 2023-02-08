@@ -22,7 +22,7 @@ impl GrayscaleEncoder {
 }
 
 impl<T: PixelValue> Encode<T> for GrayscaleEncoder {
-    fn encode(&self, buffer: &[T]) -> Result<Vec<u8>, Box<dyn Error>> {
+    fn encode(&self, _buffer: &[T]) -> Result<Vec<u8>, Box<dyn Error>> {
         unimplemented!("encode() not implemented for GrayscaleEncoder, use encode_8bit() instead")
     }
 

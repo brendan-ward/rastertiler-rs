@@ -23,7 +23,7 @@ impl RGBEncoder {
 }
 
 impl<T: PixelValue> Encode<T> for RGBEncoder {
-    fn encode(&self, buffer: &[T]) -> Result<Vec<u8>, Box<dyn Error>> {
+    fn encode(&self, _buffer: &[T]) -> Result<Vec<u8>, Box<dyn Error>> {
         unimplemented!("encode() not implemented for RGBEncoder, use encode_8bit() instead")
     }
 

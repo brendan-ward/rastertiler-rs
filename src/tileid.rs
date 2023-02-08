@@ -1,3 +1,5 @@
+#![allow(unused)]
+
 use itertools::Itertools;
 use std::f64::consts::PI;
 
