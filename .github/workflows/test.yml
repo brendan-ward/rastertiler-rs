@@ -1,53 +1,53 @@
 name: Run tests
 
 on:
-  push:
-    branches:
-      - main
-  pull_request:
-  workflow_dispatch:
+    push:
+        branches:
+            - main
+    pull_request:
+    workflow_dispatch:
 
 jobs:
-  test:
-    name: Test Rust ${{ matrix.toolchain }}
-    runs-on: ubuntu-latest
-    container:
-      image: osgeo/gdal:ubuntu-small-3.5.0
-    strategy:
-      fail-fast: false
-      matrix:
-        toolchain: ["stable", "nightly"]
+    test:
+        name: Test Rust ${{ matrix.toolchain }}
+        runs-on: ubuntu-latest
+        container:
+            image: ghcr.io/osgeo/gdal:ubuntu-small-3.7.2
+        strategy:
+            fail-fast: false
+            matrix:
+                toolchain: ["stable", "nightly"]
 
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v2
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v2
 
-      - name: Install build deps
-        run: |
-          apt-get update -y
-          apt-get install build-essential pkg-config libclang-dev -y
-          export CC="clang-9"
-          export CXX="clang++-9"
+            - name: Install build deps
+              run: |
+                  apt-get update -y
+                  apt-get install build-essential pkg-config libclang-dev -y
+                  export CC="clang-9"
+                  export CXX="clang++-9"
 
-      - uses: actions-rs/toolchain@v1
-        with:
-          toolchain: ${{ matrix.toolchain }}
-          override: true
-          components: clippy
+            - uses: actions-rs/toolchain@v1
+              with:
+                  toolchain: ${{ matrix.toolchain }}
+                  override: true
+                  components: clippy
 
-      - name: Rust version
-        run: |
-          cargo --version --verbose
+            - name: Rust version
+              run: |
+                  cargo --version --verbose
 
-      - name: Cache dependencies
-        uses: Swatinem/rust-cache@v1
+            - name: Cache dependencies
+              uses: Swatinem/rust-cache@v1
 
-      - name: Lint
-        run: |
-          cargo fmt -- --check
-          cargo clippy --package rastertiler -- -D warnings
+            - name: Lint
+              run: |
+                  cargo fmt -- --check
+                  cargo clippy --package rastertiler -- -D warnings
 
-      - name: Run tests
-        run: |
-          cargo check
-          cargo test --verbose
+            - name: Run tests
+              run: |
+                  cargo check
+                  cargo test --verbose

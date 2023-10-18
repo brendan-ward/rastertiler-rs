@@ -45,14 +45,14 @@ impl<T: PixelValue> ColormapEncoder<T> {
         let mut pixels: Vec<u8> = Vec::with_capacity(buffer.len() / 8);
         for i in (0..buffer.len()).step_by(8) {
             pixels.push(pack_8u_1bit(
-                self.colormap.get_index(buffer[i].into()),
-                self.colormap.get_index(buffer[i + 1].into()),
-                self.colormap.get_index(buffer[i + 2].into()),
-                self.colormap.get_index(buffer[i + 3].into()),
-                self.colormap.get_index(buffer[i + 4].into()),
-                self.colormap.get_index(buffer[i + 5].into()),
-                self.colormap.get_index(buffer[i + 6].into()),
-                self.colormap.get_index(buffer[i + 7].into()),
+                self.colormap.get_index(buffer[i]),
+                self.colormap.get_index(buffer[i + 1]),
+                self.colormap.get_index(buffer[i + 2]),
+                self.colormap.get_index(buffer[i + 3]),
+                self.colormap.get_index(buffer[i + 4]),
+                self.colormap.get_index(buffer[i + 5]),
+                self.colormap.get_index(buffer[i + 6]),
+                self.colormap.get_index(buffer[i + 7]),
             ));
         }
 
@@ -63,10 +63,10 @@ impl<T: PixelValue> ColormapEncoder<T> {
         let mut pixels: Vec<u8> = Vec::with_capacity(buffer.len() / 4);
         for i in (0..buffer.len()).step_by(4) {
             pixels.push(pack_8u_2bit(
-                self.colormap.get_index(buffer[i].into()),
-                self.colormap.get_index(buffer[i + 1].into()),
-                self.colormap.get_index(buffer[i + 2].into()),
-                self.colormap.get_index(buffer[i + 3].into()),
+                self.colormap.get_index(buffer[i]),
+                self.colormap.get_index(buffer[i + 1]),
+                self.colormap.get_index(buffer[i + 2]),
+                self.colormap.get_index(buffer[i + 3]),
             ));
         }
 
@@ -77,8 +77,8 @@ impl<T: PixelValue> ColormapEncoder<T> {
         let mut pixels: Vec<u8> = Vec::with_capacity(buffer.len() / 2);
         for i in (0..buffer.len()).step_by(2) {
             pixels.push(pack_8u_4bit(
-                self.colormap.get_index(buffer[i].into()),
-                self.colormap.get_index(buffer[i + 1].into()),
+                self.colormap.get_index(buffer[i]),
+                self.colormap.get_index(buffer[i + 1]),
             ));
         }
 
@@ -102,11 +102,7 @@ impl<T: PixelValue> Encode<T> for ColormapEncoder<T> {
 
         let mut png_buffer: Vec<u8> = Vec::new();
 
-        let mut encoder = Encoder::new(
-            BufWriter::new(&mut png_buffer),
-            self.width as u32,
-            self.height as u32,
-        );
+        let mut encoder = Encoder::new(BufWriter::new(&mut png_buffer), self.width, self.height);
 
         encoder.set_color(ColorType::Indexed);
         encoder.set_compression(Compression::Best);
@@ -125,7 +121,7 @@ impl<T: PixelValue> Encode<T> for ColormapEncoder<T> {
             BitDepth::Four => self.pack_4bit(buffer),
             BitDepth::Eight => buffer
                 .iter()
-                .map(|&v| self.colormap.get_index(v.into()))
+                .map(|&v| self.colormap.get_index(v))
                 .collect::<Vec<u8>>(),
             _ => unreachable!(),
         };

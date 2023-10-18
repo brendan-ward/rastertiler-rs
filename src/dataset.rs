@@ -106,7 +106,7 @@ impl Dataset {
     }
 
     pub fn mercator_vrt(&self) -> Result<Dataset, Box<dyn Error>> {
-        return self.warped_vrt(&SpatialRef::from_epsg(3857)?);
+        self.warped_vrt(&SpatialRef::from_epsg(3857)?)
     }
 
     pub fn band(&self, band_index: isize) -> Result<RasterBand, Box<dyn Error>> {
@@ -160,7 +160,7 @@ impl Dataset {
         let read_width = ((x_stop - x_offset) + 0.5).floor() as usize;
         let read_height = ((y_stop - y_offset) + 0.5).floor() as usize;
 
-        if read_width <= 0 || read_height <= 0 {
+        if read_width == 0 || read_height == 0 {
             // to data available within extent of dataset
             return Ok(false);
         }
@@ -247,5 +247,5 @@ pub fn write_raster<T: GdalType + Copy>(
 
     band.write((0, 0), (width, height), &raster)?;
 
-    return Ok(());
+    Ok(())
 }
