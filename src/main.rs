@@ -2,7 +2,8 @@ use std::error::Error;
 // use std::fs;
 use std::path::PathBuf;
 
-use clap::{CommandFactory, ErrorKind, Parser};
+use clap::error::ErrorKind;
+use clap::{CommandFactory, Parser};
 use crossbeam::channel;
 // use gdal::spatial_ref::SpatialRef;
 use gdal::raster::GdalDataType;
@@ -25,9 +26,9 @@ use crate::png::{ColormapEncoder, Encode, GrayscaleEncoder, RGBEncoder, Rgb8};
 use crate::tileid::{TileID, TileRange};
 
 #[derive(Parser, Debug)]
-#[clap(author, version, about)]
+#[command(author, version, about)]
 struct Cli {
-    #[clap(parse(try_from_str=file_exists))]
+    #[arg(value_parser=file_exists)]
     /// Input GeoTIFF filename
     tiff: PathBuf,
 
@@ -35,11 +36,11 @@ struct Cli {
     mbtiles: PathBuf,
 
     /// Minimum zoom level
-    #[clap(short = 'Z', long, default_value_t = 0, parse(try_from_str=parse_zoom))]
+    #[clap(short = 'Z', long, default_value_t = 0, value_parser=parse_zoom)]
     minzoom: u8,
 
     /// Maximum zoom level
-    #[clap(short = 'z', long, default_value_t = 0, parse(try_from_str=parse_zoom))]
+    #[clap(short = 'z', long, default_value_t = 0, value_parser=parse_zoom)]
     maxzoom: u8,
 
     /// Tile size in pixels per side

@@ -7,7 +7,7 @@ edition = "2021"
 license = "MIT OR Apache-2.0"
 
 [dependencies]
-clap = { version = "3.2.25", features = ["derive"] }
+clap = { version = "4.4", features = ["derive"] }
 crossbeam = "0.8"
 gdal = "0.16"
 gdal-sys = "0.9"
@@ -19,7 +19,6 @@ libc = "0.2"
 r2d2 = "0.8"
 r2d2_sqlite = "0.22"
 rusqlite = "0.29"
-rust-crypto = "0.2"
 seahash = "4.1"
 
 [dev-dependencies]
