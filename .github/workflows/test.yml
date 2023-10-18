@@ -20,14 +20,14 @@ jobs:
 
         steps:
             - name: Checkout repository
-              uses: actions/checkout@v2
+              uses: actions/checkout@v4
 
             - name: Install build deps
               run: |
                   apt-get update -y
-                  apt-get install build-essential pkg-config libclang-dev -y
-                  export CC="clang-9"
-                  export CXX="clang++-9"
+                  apt-get install build-essential pkg-config libclang-dev libsqlite3-dev -y
+                  export CC="clang-14"
+                  export CXX="clang++-14"
 
             - uses: actions-rs/toolchain@v1
               with:
@@ -40,7 +40,7 @@ jobs:
                   cargo --version --verbose
 
             - name: Cache dependencies
-              uses: Swatinem/rust-cache@v1
+              uses: Swatinem/rust-cache@v2
 
             - name: Lint
               run: |
