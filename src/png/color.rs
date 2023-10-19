@@ -1,8 +1,6 @@
 use std::collections::BTreeMap;
 use std::error::Error;
 
-use hex;
-
 use crate::png::PixelValue;
 
 #[derive(Debug, Eq, PartialEq)]
@@ -73,6 +71,7 @@ impl<T: PixelValue> ColormapRgb8<T> {
 
     pub fn add_color(&mut self, value: T, color: Rgb8) {
         // only add unique entries
+        #![allow(clippy::map_entry)]
         if !self.values.contains_key(&value) {
             self.values.insert(value, self.values.len() as u8);
             self.colors.push(color.r);
@@ -82,13 +81,13 @@ impl<T: PixelValue> ColormapRgb8<T> {
     }
 
     pub fn parse(colormap_str: &str, nodata: u8) -> Result<ColormapRgb8<u8>, Box<dyn Error>> {
-        let num_colors = colormap_str.matches(",").count() + 1;
+        let num_colors = colormap_str.matches(',').count() + 1;
         let mut colormap = ColormapRgb8::<u8>::new(num_colors, nodata);
 
         let mut value: u8;
         let mut color: Rgb8;
-        for entry in colormap_str.split(",") {
-            let parts: Vec<&str> = entry.split(":").collect();
+        for entry in colormap_str.split(',') {
+            let parts: Vec<&str> = entry.split(':').collect();
             value = parts[0].parse()?;
             color = Rgb8::from_hex(parts[1])?;
             colormap.add_color(value, color);

@@ -132,7 +132,7 @@ impl TileRange {
 
     pub fn count(&self) -> usize {
         (self.xmax as usize - self.xmin as usize + 1)
-            * (self.ymax as usize - self.ymin as usize + 1) as usize
+            * (self.ymax as usize - self.ymin as usize + 1)
     }
 
     pub fn iter(&self) -> impl Iterator<Item = TileID> {

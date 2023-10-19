@@ -2,7 +2,8 @@ use std::error::Error;
 // use std::fs;
 use std::path::PathBuf;
 
-use clap::{CommandFactory, ErrorKind, Parser};
+use clap::error::ErrorKind;
+use clap::{CommandFactory, Parser};
 use crossbeam::channel;
 // use gdal::spatial_ref::SpatialRef;
 use gdal::raster::GdalDataType;
@@ -25,9 +26,9 @@ use crate::png::{ColormapEncoder, Encode, GrayscaleEncoder, RGBEncoder, Rgb8};
 use crate::tileid::{TileID, TileRange};
 
 #[derive(Parser, Debug)]
-#[clap(author, version, about)]
+#[command(author, version, about)]
 struct Cli {
-    #[clap(parse(try_from_str=file_exists))]
+    #[arg(value_parser=file_exists)]
     /// Input GeoTIFF filename
     tiff: PathBuf,
 
@@ -35,11 +36,11 @@ struct Cli {
     mbtiles: PathBuf,
 
     /// Minimum zoom level
-    #[clap(short = 'Z', long, default_value_t = 0, parse(try_from_str=parse_zoom))]
+    #[clap(short = 'Z', long, default_value_t = 0, value_parser=parse_zoom)]
     minzoom: u8,
 
     /// Maximum zoom level
-    #[clap(short = 'z', long, default_value_t = 0, parse(try_from_str=parse_zoom))]
+    #[clap(short = 'z', long, default_value_t = 0, value_parser=parse_zoom)]
     maxzoom: u8,
 
     /// Tile size in pixels per side
@@ -116,11 +117,12 @@ fn main() {
         .exit();
     }
 
-    let allowed_dtype: bool = match dtype {
-        GdalDataType::UInt8 => true,
-        GdalDataType::UInt32 => true,
-        _ => false,
-    };
+    // let allowed_dtype: bool = match dtype {
+    //     GdalDataType::UInt8 => true,
+    //     GdalDataType::UInt32 => true,
+    //     _ => false,
+    // };
+    let allowed_dtype: bool = matches!(dtype, GdalDataType::UInt8 | GdalDataType::UInt32);
 
     if !allowed_dtype {
         let mut cmd = Cli::command();
@@ -253,7 +255,7 @@ fn parse_zoom(s: &str) -> Result<u8, String> {
     if zoom > 24 {
         return Err(String::from("must be no greater than 24"));
     }
-    return Ok(zoom);
+    Ok(zoom)
 }
 
 fn worker_u8(
@@ -277,7 +279,7 @@ fn worker_u8(
     let (has_colormap, encoder): (bool, Box<dyn Encode<u8>>) = match colormap_str {
         Some(c) => (
             true,
-            Box::new(ColormapEncoder::<u8>::from_str(width, height, &c, nodata).unwrap()),
+            Box::new(ColormapEncoder::<u8>::from_str(width, height, c, nodata).unwrap()),
         ),
         _ => (
             false,
@@ -287,7 +289,7 @@ fn worker_u8(
 
     // create buffers to receive data; these are automatically filled with
     // the appropriate nodata value before reading from the raster
-    let mut buffer = vec![0u8; (tilesize as usize * tilesize as usize) as usize];
+    let mut buffer = vec![0u8; tilesize as usize * tilesize as usize];
 
     let mut png_data: Vec<u8>;
 
@@ -329,7 +331,7 @@ fn worker_u32(
     let mut colormap_encoder: ColormapEncoder<u32> =
         ColormapEncoder::new(width, height, nodata, 256)?;
 
-    let buffer_size = (tilesize as usize * tilesize as usize) as usize;
+    let buffer_size = tilesize as usize * tilesize as usize;
     let mut buffer = vec![nodata; buffer_size];
     let mut rgb_buffer: Vec<u8> = vec![0u8; buffer_size * 3];
     let mut color: Rgb8;

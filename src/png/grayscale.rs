@@ -30,11 +30,7 @@ impl<T: PixelValue> Encode<T> for GrayscaleEncoder {
         // TODO: may want to pass in or internally provide png_buffer to reduce allocations
         let mut png_buffer: Vec<u8> = Vec::new();
 
-        let mut encoder = Encoder::new(
-            BufWriter::new(&mut png_buffer),
-            self.width as u32,
-            self.height as u32,
-        );
+        let mut encoder = Encoder::new(BufWriter::new(&mut png_buffer), self.width, self.height);
 
         encoder.set_color(ColorType::Grayscale);
         encoder.set_depth(BitDepth::Eight);

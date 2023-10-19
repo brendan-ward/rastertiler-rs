@@ -57,13 +57,13 @@ impl MBTiles {
         }
 
         let manager =
-            SqliteConnectionManager::file(path).with_init(|c| c.execute_batch(&INIT_QUERY));
+            SqliteConnectionManager::file(path).with_init(|c| c.execute_batch(INIT_QUERY));
 
         let pool = r2d2::Pool::builder()
             .max_size(pool_size as u32)
             .build(manager)?;
 
-        return Ok(MBTiles { pool: pool });
+        Ok(MBTiles { pool })
     }
 
     pub fn get_connection(
@@ -72,7 +72,7 @@ impl MBTiles {
         Ok(self.pool.get()?)
     }
 
-    pub fn set_metadata(&self, metadata: &Vec<(&str, &str)>) -> Result<(), Box<dyn Error>> {
+    pub fn set_metadata(&self, metadata: &[(&str, &str)]) -> Result<(), Box<dyn Error>> {
         let mut conn = self.pool.get().unwrap();
         let tx = conn.transaction()?;
 
@@ -118,7 +118,7 @@ impl MBTiles {
 
     pub fn flush(path: &PathBuf) -> Result<(), Box<dyn Error>> {
         let conn = Connection::open(path)?;
-        conn.execute_batch(&RESET_WAL_QUERY)?;
+        conn.execute_batch(RESET_WAL_QUERY)?;
 
         // delete -wal and -shm files if exist
         let path_str = path.to_str().unwrap();
