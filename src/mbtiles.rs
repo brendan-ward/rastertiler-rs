@@ -37,7 +37,7 @@ const INSERT_TILE_QUERY: &str =
     "INSERT INTO map (zoom_level, tile_column, tile_row, tile_id) VALUES(?, ?, ?, ?)";
 
 // PRAGMA journal_mode=DELETE;
-const CLOSE_MBTILES_QUERY: &str = r#"
+const UPDATE_INDEX_QUERY: &str = r#"
 CREATE UNIQUE INDEX IF NOT EXISTS map_index ON map (zoom_level, tile_column, tile_row);
 
 PRAGMA wal_checkpoint(TRUNCATE);
@@ -109,9 +109,9 @@ impl MBTiles {
         Ok(())
     }
 
-    pub fn close(&self) -> Result<(), Box<dyn Error>> {
+    pub fn update_index(&self) -> Result<(), Box<dyn Error>> {
         let conn = self.pool.get().unwrap();
-        conn.execute_batch(CLOSE_MBTILES_QUERY)?;
+        conn.execute_batch(UPDATE_INDEX_QUERY)?;
 
         Ok(())
     }

@@ -117,11 +117,6 @@ fn main() {
         .exit();
     }
 
-    // let allowed_dtype: bool = match dtype {
-    //     GdalDataType::UInt8 => true,
-    //     GdalDataType::UInt32 => true,
-    //     _ => false,
-    // };
     let allowed_dtype: bool = matches!(dtype, GdalDataType::UInt8 | GdalDataType::UInt32);
 
     if !allowed_dtype {
@@ -231,7 +226,7 @@ fn main() {
         })
         .unwrap();
 
-        db.close().unwrap();
+        db.update_index().unwrap();
     }
 
     // change the database back to non-WAL mode
