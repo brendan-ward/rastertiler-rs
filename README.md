@@ -17,7 +17,7 @@ From a local clone of this repository
 Build and run this in development mode:
 
 ```bash
-cargo run -- <tif filename> <mbtiles filename>
+cargo run -- render <tif filename> <mbtiles filename>
 ```
 
 Or build a release version:
@@ -29,34 +29,44 @@ cargo build --release
 ## Usage
 
 ```bash
-USAGE:
-    rastertiler [OPTIONS] <TIFF> <MBTILES>
+Usage: rastertiler <COMMAND>
 
-ARGS:
-    <TIFF>       Input GeoTIFF filename
-    <MBTILES>    Output MBTiles filename
+Commands:
+  merge   merge two MBTiles files into a single MBTiles file
+  render  render a single-band GeoTIFF to a MBTiles file
+  help    Print this message or the help of the given subcommand(s)
 
-OPTIONS:
-    -a, --attribution <ATTRIBUTION>    Minimum zoom level
-    -c, --colormap <COLORMAP>          Colormap as comma-delmited value:hex color pairs, e.g.,
-                                       "<value>:<hex>,<value:hex>" can only be provided for uint8
-                                       data
-    -d, --description <DESCRIPTION>    Tileset description
-        --disable-overviews            Disable use of overviews in source GeoTIFF. This will yield
-                                       more precise results at the expense of slower performance
-    -h, --help                         Print help information
-    -n, --name <NAME>                  Tileset name
-    -s, --tilesize <TILESIZE>          Tile size in pixels per side [default: 512]
-    -V, --version                      Print version information
-    -w, --workers <WORKERS>            Number of workers to create tiles [default: 4]
-    -z, --maxzoom <MAXZOOM>            Maximum zoom level [default: 0]
-    -Z, --minzoom <MINZOOM>            Minimum zoom level [default: 0]
+Options:
+  -h, --help     Print help
+  -V, --version  Print version
+```
+
+### Render tiles
+
+```bash
+Usage: rastertiler render [OPTIONS] <TIFF> <MBTILES>
+
+Arguments:
+  <TIFF>     Input GeoTIFF filename
+  <MBTILES>  Output MBTiles filename
+
+Options:
+  -Z, --minzoom <MINZOOM>          Minimum zoom level [default: 0]
+  -z, --maxzoom <MAXZOOM>          Maximum zoom level [default: 0]
+  -s, --tilesize <TILESIZE>        Tile size in pixels per side [default: 512]
+  -n, --name <NAME>                Tileset name
+  -d, --description <DESCRIPTION>  Tileset description
+  -a, --attribution <ATTRIBUTION>  Minimum zoom level
+  -w, --workers <WORKERS>          Number of workers to create tiles [default: 4]
+  -c, --colormap <COLORMAP>        Colormap as comma-delmited value:hex color pairs, e.g., "<value>:<hex>,<value:hex>" can only be provided for uint8 data
+      --disable-overviews          Disable use of overviews in source GeoTIFF. This will yield more precise results at the expense of slower performance
+  -h, --help                       Print help
 ```
 
 To create MBtiles from a single-band `uint8` GeoTIFF:
 
 ```bash
-rastertiler example.tif example.mbtiles --minzoom 0 --maxzoom 2
+rastertiler render example.tif example.mbtiles --minzoom 0 --maxzoom 2
 ```
 
 By default, this will render grayscale PNG tiles.
@@ -64,7 +74,7 @@ By default, this will render grayscale PNG tiles.
 To use a colormap to render the `uint8` data to paletted PNG
 
 ```bash
-rastertiler create example.tif example.mbtiles --minzoom 0 --maxzoom 2 --colormap "1:#686868,2:#fbb4b9,3:#c51b8a,4:#49006a"
+rastertiler render example.tif example.mbtiles --minzoom 0 --maxzoom 2 --colormap "1:#686868,2:#fbb4b9,3:#c51b8a,4:#49006a"
 ```
 
 Any values in the GeoTIFF that are not present in the colormap are converted to
@@ -77,6 +87,24 @@ hold all values of the colormap plus a transparency value:
 -   a colormap with 3 values will be output as a 2-bit PNG
 -   a colormap with 14 values will be output as a 4-bit PNG
 -   otherwise will be output as an 8-bit PNG
+
+### Merge tilesets
+
+You may need to render a given dataset at different zoom levels, such as using
+internal overviews for low zooms and no overviews for higher zooms. You can use
+the `merge` subcommand to merge these into a single tileset.
+
+```bash
+Usage: rastertiler merge <left MBTiles file> <right MBTiles file> <output MBTiles file>
+
+Arguments:
+  <left MBTiles file>
+  <right MBTiles file>
+  <output MBTiles file>
+
+Options:
+  -h, --help  Print help
+```
 
 ## Credits
 
