@@ -90,11 +90,7 @@ fn main() -> Result<()> {
     let cli = Cli::parse();
     match &cli.command {
         Commands::Merge { left, right, out } => {
-            println!("merge: {:?} + {:?} => {:?}", left, right, out);
-
             merge(left, right, out)?;
-
-            return Ok(());
         }
         Commands::Render {
             tiff,

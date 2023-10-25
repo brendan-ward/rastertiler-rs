@@ -1,3 +1,5 @@
+#![allow(clippy::too_many_arguments)]
+
 use std::error::Error;
 // use std::fs;
 use std::path::PathBuf;
@@ -28,17 +30,7 @@ pub fn render_tiles(
     colormap: &Option<String>,
     disable_overviews: bool,
 ) -> Result<()> {
-    println!(
-        "Call: {:?} ({}) {:?}, name:{:?}, zooms: {}-{}",
-        tiff,
-        tiff.exists(),
-        mbtiles,
-        name,
-        minzoom,
-        maxzoom
-    );
-
-    let dataset = Dataset::open(&tiff, false).unwrap();
+    let dataset = Dataset::open(tiff, false).unwrap();
     let band = dataset.band(1).unwrap();
     let dtype = band.band_type();
     let geo_bounds = dataset.geo_bounds().unwrap();
@@ -101,7 +93,7 @@ pub fn render_tiles(
 
     // in a block so that connections are dropped to force flush / close
     {
-        let db = MBTiles::new(&mbtiles, workers).unwrap();
+        let db = MBTiles::new(mbtiles, workers).unwrap();
         db.set_metadata(&metadata).unwrap();
 
         let (snd, rcv) = channel::bounded(1);
@@ -158,7 +150,7 @@ pub fn render_tiles(
     }
 
     // change the database back to non-WAL mode
-    MBTiles::flush(&mbtiles).unwrap();
+    MBTiles::flush(mbtiles).unwrap();
 
     Ok(())
 }

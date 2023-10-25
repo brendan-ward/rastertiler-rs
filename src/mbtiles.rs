@@ -1,6 +1,6 @@
 use std::error::Error;
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use anyhow::Result;
 use r2d2::PooledConnection;
@@ -144,7 +144,7 @@ impl MBTiles {
     }
 }
 
-pub fn merge(left: &PathBuf, right: &PathBuf, out: &PathBuf) -> Result<()> {
+pub fn merge(left: &PathBuf, right: &Path, out: &PathBuf) -> Result<()> {
     // copy left to output
     fs::copy(left, out)?;
 
