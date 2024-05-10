@@ -2,7 +2,7 @@
 
 A tool to create a PNG MBtiles tileset from a single-band GeoTIFF.
 
-Requires GDAL >= 3.4 to be installed on the system.
+Requires GDAL >= 3.8 to be installed on the system.
 
 ## WARNING
 

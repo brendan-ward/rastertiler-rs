@@ -406,8 +406,7 @@ dependencies = [
 [[package]]
 name = "gdal"
 version = "0.16.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6639365794fa1f35f36f8cd3e2ea21c94c9b04aa8d9ee0d0f3324621efeb0800"
+source = "git+https://github.com/georust/gdal.git#26f2544dd1fc16ae73f01fae6305c97d4240e5f4"
 dependencies = [
  "bitflags 2.4.1",
  "chrono",
@@ -422,8 +421,7 @@ dependencies = [
 [[package]]
 name = "gdal-sys"
 version = "0.9.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ab73a6c9d0d620fb5b07e02ffbb8ae08f053299cbe5db0c1bbe1d58cb33e3f38"
+source = "git+https://github.com/georust/gdal.git#26f2544dd1fc16ae73f01fae6305c97d4240e5f4"
 dependencies = [
  "libc",
  "pkg-config",

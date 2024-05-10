@@ -10,8 +10,11 @@ license = "MIT OR Apache-2.0"
 anyhow = "1.0"
 clap = { version = "4.4", features = ["derive"] }
 crossbeam = "0.8"
-gdal = "0.16"
-gdal-sys = "0.9"
+gdal = { git = "https://github.com/georust/gdal.git" }
+gdal-sys = { git = "https://github.com/georust/gdal.git" }
+# TODO: update gdal once released with 3.8 support
+# gdal = "0.16"
+# gdal-sys = "0.9"
 hex = "0.4"
 png = "0.17"
 indicatif = "0.17"

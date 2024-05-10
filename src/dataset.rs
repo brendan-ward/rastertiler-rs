@@ -6,7 +6,7 @@ use std::ffi::CString;
 use std::path::PathBuf;
 
 use gdal::cpl::CslStringList;
-use gdal::raster::{Buffer, GdalType, RasterBand, RasterCreationOption, ResampleAlg};
+use gdal::raster::{Buffer, GdalType, RasterBand, RasterCreationOptions, ResampleAlg};
 use gdal::spatial_ref::{CoordTransform, SpatialRef};
 use gdal::{Dataset as GDALDataset, DatasetOptions, DriverManager};
 use gdal_sys::{GDALAutoCreateWarpedVRT, GDALCreateWarpOptions, GDALDatasetH, GDALResampleAlg};
@@ -109,7 +109,7 @@ impl Dataset {
         self.warped_vrt(&SpatialRef::from_epsg(3857)?)
     }
 
-    pub fn band(&self, band_index: isize) -> Result<RasterBand, Box<dyn Error>> {
+    pub fn band(&self, band_index: usize) -> Result<RasterBand, Box<dyn Error>> {
         Ok(self.ds.rasterband(band_index)?)
     }
 
@@ -206,36 +206,15 @@ pub fn write_raster<T: GdalType + Copy>(
     nodata: f64,
 ) -> Result<(), Box<dyn Error>> {
     let driver = DriverManager::get_driver_by_name("GTiff").unwrap();
-    let options = [
-        RasterCreationOption {
-            key: "TILED",
-            value: "YES",
-        },
-        RasterCreationOption {
-            key: "BLOCKXSIZE",
-            value: "256",
-        },
-        RasterCreationOption {
-            key: "BLOCKYSIZE",
-            value: "256",
-        },
-        RasterCreationOption {
-            key: "COMPRESS",
-            value: "LZW",
-        },
-        RasterCreationOption {
-            key: "INTERLEAVE",
-            value: "BAND",
-        },
-    ];
+    let options = RasterCreationOptions::from_iter([
+        "TILED=YES",
+        "BLOCKXSIZE=256",
+        "BLOCKYSIZE=256",
+        "COMPRESS=LZW",
+        "INTERLEAVE=BAND",
+    ]);
     let mut dataset = driver
-        .create_with_band_type_with_options::<T, _>(
-            path,
-            width as isize,
-            height as isize,
-            1,
-            &options,
-        )
+        .create_with_band_type_with_options::<T, _>(path, width, height, 1, &options)
         .unwrap();
     dataset.set_geo_transform(&transform.to_gdal())?;
     dataset.set_spatial_ref(spatialref)?;
@@ -243,9 +222,9 @@ pub fn write_raster<T: GdalType + Copy>(
     let mut band = dataset.rasterband(1)?;
     band.set_no_data_value(Some(nodata))?;
 
-    let raster = Buffer::new((width, height), data);
+    let mut raster = Buffer::new((width, height), data);
 
-    band.write((0, 0), (width, height), &raster)?;
+    band.write((0, 0), (width, height), &mut raster)?;
 
     Ok(())
 }

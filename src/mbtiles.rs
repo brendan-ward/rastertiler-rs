@@ -178,7 +178,7 @@ pub fn merge(left: &PathBuf, right: &Path, out: &PathBuf) -> Result<()> {
         )?;
 
         // update metadata for zoom levels
-        tx.execute(r#"
+        tx.execute_batch(r#"
             with min_value as(
                 with combined as (
                     select cast (value as INTEGER) as value from source.metadata where name="minzoom"
@@ -204,7 +204,7 @@ pub fn merge(left: &PathBuf, right: &Path, out: &PathBuf) -> Result<()> {
             set value = cast(max_value.new_value as TEXT)
             from max_value
             where name="maxzoom";
-        "#, ())?;
+        "#)?;
     }
 
     tx.commit()?;
