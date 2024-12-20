@@ -22,10 +22,10 @@ fn geo_to_mercator(lon: f64, lat: f64) -> (f64, f64) {
     let deg2rad: f64 = PI / 180.0;
 
     // clamp x to -180 to 180 range
-    let lon = lon.max(-180.0).min(180.0);
+    let lon = lon.clamp(-180.0, 180.0);
 
     // clamp y to -85.051129 to 85.051129 range
-    let lat = lat.max(-85.051129).min(85.051129);
+    let lat = lat.clamp(-85.051129, 85.051129);
 
     let x = lon * (ORIGIN / 180.0);
     let y = RE * ((PI * 0.25) + (0.5 * deg2rad * lat)).tan().ln();
