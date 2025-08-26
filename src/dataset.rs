@@ -109,7 +109,7 @@ impl Dataset {
         self.warped_vrt(&SpatialRef::from_epsg(3857)?)
     }
 
-    pub fn band(&self, band_index: usize) -> Result<RasterBand, Box<dyn Error>> {
+    pub fn band(&self, band_index: usize) -> Result<RasterBand<'_>, Box<dyn Error>> {
         Ok(self.ds.rasterband(band_index)?)
     }
 

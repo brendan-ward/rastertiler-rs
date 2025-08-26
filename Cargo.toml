@@ -3,7 +3,7 @@ authors = ["Brendan C. Ward"]
 name = "rastertiler"
 description = "Render a single-band GeoTIFF to MBTiles"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 license = "MIT OR Apache-2.0"
 
 [dependencies]
@@ -11,8 +11,10 @@ anyhow = "1.0"
 clap = { version = "4.5", features = ["derive"] }
 crossbeam = "0.8"
 gdal = { git = "https://github.com/georust/gdal.git" }
-gdal-sys = { git = "https://github.com/georust/gdal.git" }
-# TODO: update gdal once released with 3.10 support
+gdal-sys = { git = "https://github.com/georust/gdal.git", features = [
+    'bindgen',
+] }
+# TODO: update gdal once released with 3.11 support
 # gdal = "0.17"
 # gdal-sys = "0.10"
 hex = "0.4"
