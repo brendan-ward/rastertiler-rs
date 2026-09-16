@@ -13,7 +13,7 @@ pub struct Rgb8 {
 impl Rgb8 {
     pub fn from_hex(hex_str: &str) -> Result<Rgb8, Box<dyn Error>> {
         if hex_str.len() != 7 {
-            return Err("unsupported hex format")?;
+            Err("unsupported hex format")?;
         }
 
         let decoded = hex::decode(&hex_str[1..])?;

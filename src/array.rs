@@ -34,7 +34,7 @@ pub fn histogram<T: Copy + Eq + Ord + Hash>(buffer: &[T]) -> BTreeMap<T, u64> {
 ///
 /// # Parameters
 /// * buffer: full slice within which original values are stored and values are
-///           to be written
+///   to be written
 /// * size: shape of the input region (width, height)
 /// * target_size: shape of the full buffer (width, height)
 /// * offset: (offset_x, offset_y)
