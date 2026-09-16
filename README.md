@@ -83,10 +83,10 @@ transparent pixels.
 The colormap renderer will automatically select the smallest bit depth that can
 hold all values of the colormap plus a transparency value:
 
--   a colormap with 1 value will be output as a 1-bit PNG
--   a colormap with 3 values will be output as a 2-bit PNG
--   a colormap with 14 values will be output as a 4-bit PNG
--   otherwise will be output as an 8-bit PNG
+- a colormap with 1 value will be output as a 1-bit PNG
+- a colormap with 3 values will be output as a 2-bit PNG
+- a colormap with 14 values will be output as a 4-bit PNG
+- otherwise will be output as an 8-bit PNG
 
 ### Merge tilesets
 
@@ -126,7 +126,7 @@ use in the
 
 Licensed under either of
 
--   [Apache License, Version 2.0](http://www.apache.org/licenses/LICENSE-2.0)
--   [MIT license](http://opensource.org/licenses/MIT)
+- [Apache License, Version 2.0](http://www.apache.org/licenses/LICENSE-2.0)
+- [MIT license](http://opensource.org/licenses/MIT)
 
 at your option.

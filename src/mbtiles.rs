@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 use anyhow::Result;
 use r2d2::PooledConnection;
 use r2d2_sqlite::SqliteConnectionManager;
-use rusqlite::{params, Connection};
+use rusqlite::{Connection, params};
 use seahash::hash;
 
 use crate::tileid::TileID;

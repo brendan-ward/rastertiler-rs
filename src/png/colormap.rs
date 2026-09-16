@@ -1,9 +1,9 @@
 use crate::png::color::ColormapRgb8;
-use png::{BitDepth, ColorType, Compression, Encoder, FilterType};
+use png::{BitDepth, ColorType, Compression, Encoder, Filter};
 use std::error::Error;
 use std::io::BufWriter;
 
-use crate::png::{pack_8u_1bit, pack_8u_2bit, pack_8u_4bit, Encode, PixelValue};
+use crate::png::{Encode, PixelValue, pack_8u_1bit, pack_8u_2bit, pack_8u_4bit};
 
 // TODO: pre-allocate and reuse buffer for storing packed data
 
@@ -105,9 +105,9 @@ impl<T: PixelValue> Encode<T> for ColormapEncoder<T> {
         let mut encoder = Encoder::new(BufWriter::new(&mut png_buffer), self.width, self.height);
 
         encoder.set_color(ColorType::Indexed);
-        encoder.set_compression(Compression::Best);
+        encoder.set_compression(Compression::Fast);
         // turn off filter, not useful for paletted PNGs
-        encoder.set_filter(FilterType::NoFilter);
+        encoder.set_filter(Filter::NoFilter);
 
         encoder.set_depth(depth);
         encoder.set_palette(self.colormap.get_colors());

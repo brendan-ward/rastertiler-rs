@@ -1,4 +1,4 @@
-use png::{BitDepth, ColorType, Compression, Encoder, FilterType};
+use png::{BitDepth, ColorType, Compression, Encoder, Filter};
 use std::error::Error;
 use std::io::BufWriter;
 
@@ -34,9 +34,9 @@ impl<T: PixelValue> Encode<T> for RGBEncoder {
 
         encoder.set_color(ColorType::Rgb);
         encoder.set_depth(BitDepth::Eight);
-        encoder.set_compression(Compression::Best);
+        encoder.set_compression(Compression::Fast);
         // disabling filter appears to give smaller files for u32 data
-        encoder.set_filter(FilterType::NoFilter);
+        encoder.set_filter(Filter::NoFilter);
 
         // encode nodata as a 2 byte RGB values per the spec, with value in high bits
         encoder.set_trns(vec![

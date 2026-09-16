@@ -1,4 +1,4 @@
-use png::{BitDepth, ColorType, Compression, Encoder, FilterType};
+use png::{BitDepth, ColorType, Compression, Encoder, Filter};
 use std::error::Error;
 use std::io::BufWriter;
 
@@ -35,8 +35,8 @@ impl<T: PixelValue> Encode<T> for GrayscaleEncoder {
         encoder.set_color(ColorType::Grayscale);
         encoder.set_depth(BitDepth::Eight);
         // turn off filter, according to PNG book
-        encoder.set_filter(FilterType::NoFilter);
-        encoder.set_compression(Compression::Best);
+        encoder.set_filter(Filter::NoFilter);
+        encoder.set_compression(Compression::Fast);
 
         // encode nodata as a 2 byte value per the spec, with value in high bits
         encoder.set_trns(vec![0, self.nodata]);
